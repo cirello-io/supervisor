@@ -232,8 +232,8 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 }
 
 func countService(t *testing.T, supervisor *Supervisor) {
-	if l := len(supervisor.services); l != 0 {
-		t.Errorf("not all services were stopped. possibly a bug: %d services left", l)
+	if r := supervisor.running; r != 0 {
+		t.Errorf("not all services were stopped. possibly a bug: %d services left", r)
 	}
 }
 
@@ -370,13 +370,42 @@ func TestDoubleStart(t *testing.T) {
 	<-supervisor.startedServices
 
 	if svc1.count != 1 {
-		t.Errorf("wait service should have been started only once:", svc1.count)
+		t.Error("wait service should have been started only once:", svc1.count)
 	}
 
 	cancel()
 	<-ctx.Done()
 	<-done
 	<-done
+
+	countService(t, &supervisor)
+}
+
+func TestRestart(t *testing.T) {
+
+	var supervisor Supervisor
+
+	var svc1 waitservice
+	supervisor.Add(&svc1)
+
+	for i := 0; i < 2; i++ {
+		done := make(chan struct{})
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		go func() {
+			supervisor.Serve(ctx)
+			done <- struct{}{}
+		}()
+		<-supervisor.startedServices
+
+		cancel()
+		<-ctx.Done()
+		<-done
+	}
+
+	if svc1.count != 2 {
+		t.Error("wait service should have been started twice:", svc1.count)
+	}
 
 	countService(t, &supervisor)
 }

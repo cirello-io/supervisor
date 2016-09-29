@@ -59,8 +59,10 @@ type Supervisor struct {
 	// Log is a replaceable function used for overall logging
 	Log func(string)
 
-	ready     sync.Once
-	startOnce sync.Once
+	ready sync.Once
+
+	startedMu sync.Mutex
+	started   bool
 
 	addedService    chan struct{}
 	startedServices chan struct{}
@@ -74,6 +76,9 @@ type Supervisor struct {
 
 	backoffMu sync.Mutex
 	backoff   map[string]*backoff
+
+	runningMu sync.Mutex
+	running   int
 }
 
 func (s *Supervisor) String() string {
@@ -148,13 +153,27 @@ func (s *Supervisor) Remove(name string) {
 	}
 }
 
-// Serve starts the Supervisor tree. It can be started only once.
+// Serve starts the Supervisor tree. It can be started only once at a time. If
+// stopped (canceled), it can be restarted.
 func (s *Supervisor) Serve(ctx context.Context) {
 	s.prepare()
 
-	s.startOnce.Do(func() {
+	select {
+	case s.addedService <- struct{}{}:
+	default:
+	}
+
+	s.startedMu.Lock()
+	if !s.started {
+		s.started = true
+		s.startedMu.Unlock()
+
 		s.serve(ctx)
-	})
+
+		s.startedMu.Lock()
+		s.started = false
+	}
+	s.startedMu.Unlock()
 }
 
 // Services return a list of service names and their cancellation calls
@@ -191,10 +210,10 @@ func (s *Supervisor) serve(ctx context.Context) {
 	s.cancellationsMu.Unlock()
 
 	for range s.stoppedService {
-		s.servicesMu.Lock()
-		l := len(s.services)
-		s.servicesMu.Unlock()
-		if l == 0 {
+		s.runningMu.Lock()
+		r := s.running
+		s.runningMu.Unlock()
+		if r == 0 {
 			return
 		}
 	}
@@ -217,6 +236,9 @@ func (s *Supervisor) startServices(ctx context.Context) {
 		wg.Add(1)
 
 		go func(name string, svc Service) {
+			s.runningMu.Lock()
+			s.running++
+			s.runningMu.Unlock()
 			wg.Done()
 			for {
 				retry := func() (retry bool) {
@@ -255,9 +277,9 @@ func (s *Supervisor) startServices(ctx context.Context) {
 					continue
 				}
 
-				s.servicesMu.Lock()
-				delete(s.services, name)
-				s.servicesMu.Unlock()
+				s.runningMu.Lock()
+				s.running--
+				s.runningMu.Unlock()
 				s.stoppedService <- struct{}{}
 				return
 			}

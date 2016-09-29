@@ -215,18 +215,20 @@ func (s *Supervisor) serve(ctx context.Context) {
 	}(ctx)
 
 	<-ctx.Done()
-	s.cancelationsMu.Lock()
-	s.cancelations = make(map[string]context.CancelFunc)
-	s.cancelationsMu.Unlock()
 
 	for range s.stoppedService {
 		s.runningMu.Lock()
 		r := s.running
 		s.runningMu.Unlock()
 		if r == 0 {
-			return
+			break
 		}
 	}
+
+	s.cancelationsMu.Lock()
+	s.cancelations = make(map[string]context.CancelFunc)
+	s.cancelationsMu.Unlock()
+	return
 }
 
 func (s *Supervisor) startServices(ctx context.Context) {
@@ -286,13 +288,13 @@ func (s *Supervisor) startServices(ctx context.Context) {
 					b.wait(s.FailureDecay, s.FailureThreshold, s.Backoff)
 					continue
 				}
-
-				s.runningMu.Lock()
-				s.running--
-				s.runningMu.Unlock()
-				s.stoppedService <- struct{}{}
-				return
+				break
 			}
+			s.runningMu.Lock()
+			s.running--
+			s.runningMu.Unlock()
+			s.stoppedService <- struct{}{}
+			return
 		}(name, svc)
 	}
 	wg.Wait()

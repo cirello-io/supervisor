@@ -31,55 +31,36 @@ func TestString(t *testing.T) {
 	}
 }
 
-func TestSimple(t *testing.T) {
-	t.Parallel()
-
-	var supervisor Supervisor
-
-	svc := Simpleservice(1)
-	supervisor.Add(&svc)
-
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
-	supervisor.Serve(ctx)
-	countService(t, &supervisor)
-}
-
-func TestMultiple(t *testing.T) {
-	t.Parallel()
-
-	var supervisor Supervisor
-
-	svc1 := Simpleservice(2)
-	supervisor.Add(&svc1)
-	svc2 := Simpleservice(3)
-	supervisor.Add(&svc2)
-
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
-	supervisor.Serve(ctx)
-	countService(t, &supervisor)
-}
-
 func TestCascaded(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
 
-	svc1 := Simpleservice(4)
+	svc1 := waitservice{id: 1}
 	supervisor.Add(&svc1)
-	svc2 := Simpleservice(5)
+	svc2 := waitservice{id: 2}
 	supervisor.Add(&svc2)
 
 	var childSupervisor Supervisor
-	svc3 := Simpleservice(6)
+	svc3 := waitservice{id: 3}
 	childSupervisor.Add(&svc3)
-	svc4 := Simpleservice(7)
+	svc4 := waitservice{id: 4}
 	childSupervisor.Add(&svc4)
 
 	supervisor.Add(&childSupervisor)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
-	countService(t, &supervisor)
+
+	if count := getServiceCount(&supervisor); count != 3 {
+		t.Errorf("unexpected service count: %v", count)
+	}
+
+	switch {
+	case svc1.count != 1, svc2.count != 1, svc3.count != 1, svc4.count != 1:
+		t.Errorf("services should have been executed only once. %d %d %d %d",
+			svc1.count, svc2.count, svc3.count, svc4.count)
+	}
 }
 
 func TestPanic(t *testing.T) {
@@ -92,7 +73,8 @@ func TestPanic(t *testing.T) {
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
-	countService(t, &supervisor)
+
+	// should arrive here with no panic
 }
 
 func TestFailing(t *testing.T) {
@@ -110,7 +92,8 @@ func TestFailing(t *testing.T) {
 
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	supervisor.Serve(ctx)
-	countService(t, &supervisor)
+
+	// should arrive here with no panic
 }
 
 func TestAddServiceAfterServe(t *testing.T) {
@@ -126,7 +109,6 @@ func TestAddServiceAfterServe(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		supervisor.Serve(ctx)
-		countService(t, &supervisor)
 		wg.Done()
 	}()
 
@@ -138,6 +120,10 @@ func TestAddServiceAfterServe(t *testing.T) {
 	cancel()
 	<-ctx.Done()
 	wg.Wait()
+
+	if count := getServiceCount(&supervisor); count != 2 {
+		t.Errorf("unexpected service count: %v", count)
+	}
 }
 
 func TestRemoveServiceAfterServe(t *testing.T) {
@@ -155,7 +141,6 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		supervisor.Serve(ctx)
-		countService(t, &supervisor)
 		wg.Done()
 	}()
 
@@ -225,7 +210,6 @@ func TestManualCancelation(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		supervisor.Serve(ctx)
-		countService(t, &supervisor)
 	}()
 
 	<-supervisor.startedServices
@@ -240,6 +224,8 @@ func TestManualCancelation(t *testing.T) {
 	cancel()
 	<-ctx.Done()
 	wg.Done()
+
+	// should arrive here with no panic
 }
 
 func TestServiceList(t *testing.T) {
@@ -255,7 +241,6 @@ func TestServiceList(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		supervisor.Serve(ctx)
-		countService(t, &supervisor)
 	}()
 
 	<-supervisor.startedServices
@@ -281,22 +266,16 @@ func TestDoubleStart(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		c := context.WithValue(ctx, "supervisor", 1)
-		supervisor.Serve(c)
-		countService(t, &supervisor)
-		wg.Done()
-	}()
-	<-supervisor.startedServices
 
-	wg.Add(1)
-	go func() {
-		c := context.WithValue(ctx, "supervisor", 2)
-		supervisor.Serve(c)
-		countService(t, &supervisor)
-		wg.Done()
-	}()
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(i int) {
+			c := context.WithValue(ctx, "supervisor", i)
+			supervisor.Serve(c)
+			wg.Done()
+		}(i)
+	}
+	<-supervisor.startedServices
 
 	cancel()
 	<-ctx.Done()
@@ -326,7 +305,6 @@ func TestRestart(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		go func() {
 			supervisor.Serve(ctx)
-			countService(t, &supervisor)
 			wg.Done()
 		}()
 		<-supervisor.startedServices
@@ -357,7 +335,6 @@ func TestFailingRestarts(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		go func() {
 			supervisor.Serve(ctx)
-			countService(t, &supervisor)
 			wg.Done()
 		}()
 		<-supervisor.startedServices
@@ -449,9 +426,7 @@ func (s *Simpleservice) String() string {
 }
 
 func (s *Simpleservice) Serve(ctx context.Context) {
-	var i int
 	for {
-		i++
 		select {
 		case <-ctx.Done():
 			return
@@ -462,6 +437,7 @@ func (s *Simpleservice) Serve(ctx context.Context) {
 }
 
 type waitservice struct {
+	id          int
 	mu          sync.Mutex
 	count       int
 	supervisors []int
@@ -479,16 +455,7 @@ func (s *waitservice) Serve(ctx context.Context) {
 }
 
 func (s *waitservice) String() string {
-	return fmt.Sprintf("wait service %v", s.count)
-}
-
-func countService(t *testing.T, s *Supervisor) {
-	s.runningMu.Lock()
-	r := s.running
-	s.runningMu.Unlock()
-	if r != 0 {
-		t.Fatalf("not all services were stopped. possibly a bug: %d services left", r)
-	}
+	return fmt.Sprintf("wait service %v", s.id)
 }
 
 func getServiceCount(s *Supervisor) int {

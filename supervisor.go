@@ -61,12 +61,10 @@ type Supervisor struct {
 
 	ready sync.Once
 
-	startedMu sync.Mutex
-	started   bool
-
 	addedService    chan struct{}
 	startedServices chan struct{}
-	stoppedService  chan struct{}
+
+	runningServices sync.WaitGroup
 
 	servicesMu sync.Mutex
 	services   map[string]Service
@@ -77,8 +75,7 @@ type Supervisor struct {
 	backoffMu sync.Mutex
 	backoff   map[string]*backoff
 
-	runningMu sync.Mutex
-	running   int
+	singleflight singleflight
 }
 
 func (s *Supervisor) String() string {
@@ -95,7 +92,6 @@ func (s *Supervisor) prepare() {
 		s.cancelations = make(map[string]context.CancelFunc)
 		s.services = make(map[string]Service)
 		s.startedServices = make(chan struct{}, 1)
-		s.stoppedService = make(chan struct{}, 1)
 
 		if s.Log == nil {
 			s.Log = func(str string) {
@@ -153,26 +149,15 @@ func (s *Supervisor) Remove(name string) {
 }
 
 // Serve starts the Supervisor tree. It can be started only once at a time. If
-// stopped (canceled), it can be restarted.
+// stopped (canceled), it can be restarted. It will discard context of
+// successive calls to supervisor when still running, and hold them until
+// original call is complete.
 func (s *Supervisor) Serve(ctx context.Context) {
 	s.prepare()
 
-	select {
-	case s.addedService <- struct{}{}:
-	default:
-	}
-
-	s.startedMu.Lock()
-	if !s.started {
-		s.started = true
-		s.startedMu.Unlock()
-
+	s.singleflight.do(func() {
 		s.serve(ctx)
-
-		s.startedMu.Lock()
-		s.started = false
-	}
-	s.startedMu.Unlock()
+	})
 }
 
 // Services return a list of services
@@ -198,6 +183,10 @@ func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 }
 
 func (s *Supervisor) serve(ctx context.Context) {
+	select {
+	case s.addedService <- struct{}{}:
+	default:
+	}
 	go func(ctx context.Context) {
 		for {
 			select {
@@ -213,17 +202,9 @@ func (s *Supervisor) serve(ctx context.Context) {
 			}
 		}
 	}(ctx)
-
 	<-ctx.Done()
 
-	for range s.stoppedService {
-		s.runningMu.Lock()
-		r := s.running
-		s.runningMu.Unlock()
-		if r == 0 {
-			break
-		}
-	}
+	s.runningServices.Wait()
 
 	s.cancelationsMu.Lock()
 	s.cancelations = make(map[string]context.CancelFunc)
@@ -240,17 +221,14 @@ func (s *Supervisor) startServices(ctx context.Context) {
 	for name, svc := range s.services {
 		s.cancelationsMu.Lock()
 		_, ok := s.cancelations[name]
-		s.cancelationsMu.Unlock()
 		if ok {
+			s.cancelationsMu.Unlock()
 			continue
 		}
 
 		wg.Add(1)
-
+		s.runningServices.Add(1)
 		go func(name string, svc Service) {
-			s.runningMu.Lock()
-			s.running++
-			s.runningMu.Unlock()
 			wg.Done()
 			for {
 				retry := func() (retry bool) {
@@ -290,13 +268,11 @@ func (s *Supervisor) startServices(ctx context.Context) {
 				}
 				break
 			}
-			s.runningMu.Lock()
-			s.running--
-			s.runningMu.Unlock()
-			s.stoppedService <- struct{}{}
-			return
+			s.runningServices.Done()
 		}(name, svc)
+		s.cancelationsMu.Unlock()
 	}
+
 	wg.Wait()
 }
 
@@ -318,4 +294,33 @@ func (b *backoff) wait(failureDecay float64, threshold float64, backoffDur time.
 	if b.failures > threshold {
 		time.Sleep(backoffDur)
 	}
+}
+
+// Based from groupcache's singleflight
+type singleflight struct {
+	wg     sync.WaitGroup
+	mu     sync.Mutex
+	flying bool
+}
+
+func (g *singleflight) do(fn func()) {
+	g.mu.Lock()
+	if g.flying {
+		g.mu.Unlock()
+		g.wg.Wait()
+		return
+	}
+
+	g.wg.Add(1)
+	g.flying = true
+	g.mu.Unlock()
+
+	fn()
+	g.wg.Done()
+
+	g.mu.Lock()
+	g.flying = false
+	g.mu.Unlock()
+
+	return
 }

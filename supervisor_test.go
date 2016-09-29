@@ -8,13 +8,13 @@ import (
 	"golang.org/x/net/context"
 )
 
-type simpleservice int
+type Simpleservice int
 
-func (s *simpleservice) String() string {
+func (s *Simpleservice) String() string {
 	return fmt.Sprintf("simple service %d", int(*s))
 }
 
-func (s *simpleservice) Serve(ctx context.Context) {
+func (s *Simpleservice) Serve(ctx context.Context) {
 	var i int
 	for {
 		i++
@@ -32,7 +32,7 @@ func (s *simpleservice) Serve(ctx context.Context) {
 func ExampleSupervisor() {
 	var supervisor Supervisor
 
-	svc := simpleservice(1)
+	svc := Simpleservice(1)
 	supervisor.Add(&svc)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
@@ -52,7 +52,7 @@ func TestString(t *testing.T) {
 func TestSimple(t *testing.T) {
 	var supervisor Supervisor
 
-	svc := simpleservice(1)
+	svc := Simpleservice(1)
 	supervisor.Add(&svc)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
@@ -64,9 +64,9 @@ func TestSimple(t *testing.T) {
 func TestMultiple(t *testing.T) {
 	var supervisor Supervisor
 
-	svc1 := simpleservice(2)
+	svc1 := Simpleservice(2)
 	supervisor.Add(&svc1)
-	svc2 := simpleservice(3)
+	svc2 := Simpleservice(3)
 	supervisor.Add(&svc2)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
@@ -78,15 +78,15 @@ func TestMultiple(t *testing.T) {
 func TestCascaded(t *testing.T) {
 	var supervisor Supervisor
 
-	svc1 := simpleservice(4)
+	svc1 := Simpleservice(4)
 	supervisor.Add(&svc1)
-	svc2 := simpleservice(5)
+	svc2 := Simpleservice(5)
 	supervisor.Add(&svc2)
 
 	var childSupervisor Supervisor
-	svc3 := simpleservice(6)
+	svc3 := Simpleservice(6)
 	childSupervisor.Add(&svc3)
-	svc4 := simpleservice(7)
+	svc4 := Simpleservice(7)
 	childSupervisor.Add(&svc4)
 
 	supervisor.Add(&childSupervisor)
@@ -168,7 +168,7 @@ func TestFailing(t *testing.T) {
 func TestAddServiceAfterServe(t *testing.T) {
 	var supervisor Supervisor
 
-	svc1 := simpleservice(1)
+	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -179,7 +179,7 @@ func TestAddServiceAfterServe(t *testing.T) {
 	}()
 
 	<-supervisor.startedServices
-	svc2 := simpleservice(2)
+	svc2 := Simpleservice(2)
 	supervisor.Add(&svc2)
 	<-supervisor.startedServices
 
@@ -193,9 +193,9 @@ func TestAddServiceAfterServe(t *testing.T) {
 func TestRemoveServiceAfterServe(t *testing.T) {
 	var supervisor Supervisor
 
-	svc1 := simpleservice(1)
+	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
-	svc2 := simpleservice(2)
+	svc2 := Simpleservice(2)
 	supervisor.Add(&svc2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -246,9 +246,9 @@ func getServiceCount(s *Supervisor) int {
 func TestServices(t *testing.T) {
 	var supervisor Supervisor
 
-	svc1 := simpleservice(1)
+	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
-	svc2 := simpleservice(2)
+	svc2 := Simpleservice(2)
 	supervisor.Add(&svc2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -306,7 +306,7 @@ func (s *restartableservice) String() string {
 func TestManualCancelation(t *testing.T) {
 	var supervisor Supervisor
 
-	svc1 := simpleservice(1)
+	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
 	svc2 := restartableservice{2, make(chan struct{})}
 	supervisor.Add(&svc2)

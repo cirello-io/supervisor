@@ -2,34 +2,12 @@ package supervisor
 
 import (
 	"fmt"
-	"runtime/pprof"
 	"sync"
 	"testing"
 	"time"
 
 	"golang.org/x/net/context"
 )
-
-type Simpleservice int
-
-func (s *Simpleservice) String() string {
-	return fmt.Sprintf("simple service %d", int(*s))
-}
-
-func (s *Simpleservice) Serve(ctx context.Context) {
-	var i int
-	for {
-		i++
-		fmt.Println("service started:", *s, "iteration:", i)
-		select {
-		case <-ctx.Done():
-			fmt.Println("context done:", ctx.Err(), *s)
-			return
-		default:
-			time.Sleep(500 * time.Millisecond)
-		}
-	}
-}
 
 func ExampleSupervisor() {
 	var supervisor Supervisor
@@ -42,6 +20,8 @@ func ExampleSupervisor() {
 }
 
 func TestString(t *testing.T) {
+	t.Parallel()
+
 	const expected = "test"
 	var supervisor Supervisor
 	supervisor.Name = expected
@@ -49,9 +29,12 @@ func TestString(t *testing.T) {
 	if got := fmt.Sprintf("%s", &supervisor); got != expected {
 		t.Errorf("error getting supervisor name: %s", got)
 	}
+
 }
 
 func TestSimple(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	svc := Simpleservice(1)
@@ -59,11 +42,13 @@ func TestSimple(t *testing.T) {
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
-
 	countService(t, &supervisor)
+
 }
 
 func TestMultiple(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	svc1 := Simpleservice(2)
@@ -73,11 +58,13 @@ func TestMultiple(t *testing.T) {
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
-
 	countService(t, &supervisor)
+
 }
 
 func TestCascaded(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	svc1 := Simpleservice(4)
@@ -95,31 +82,13 @@ func TestCascaded(t *testing.T) {
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
-
 	countService(t, &supervisor)
-}
 
-type panicservice int
-
-func (s *panicservice) Serve(ctx context.Context) {
-	for {
-		fmt.Println("panic service started:", *s)
-		select {
-		case <-ctx.Done():
-			fmt.Println("panic service context:", ctx.Err(), *s)
-			return
-		default:
-			time.Sleep(100 * time.Millisecond)
-			panic("forcing panic")
-		}
-	}
-}
-
-func (s *panicservice) String() string {
-	return fmt.Sprintf("panic service %v", *s)
 }
 
 func TestPanic(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 	supervisor.Backoff = 500 * time.Millisecond
 	svc1 := panicservice(1)
@@ -127,30 +96,13 @@ func TestPanic(t *testing.T) {
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
-
 	countService(t, &supervisor)
-}
 
-type failingservice int
-
-func (s *failingservice) Serve(ctx context.Context) {
-	fmt.Println("failing service started:", *s, "times")
-	select {
-	case <-ctx.Done():
-		fmt.Println("failing service context:", ctx.Err(), *s, "times")
-		return
-	default:
-		time.Sleep(100 * time.Millisecond)
-		*s++
-		return
-	}
-}
-
-func (s *failingservice) String() string {
-	return fmt.Sprintf("failing service %v", *s)
 }
 
 func TestFailing(t *testing.T) {
+	t.Parallel()
+
 	supervisor := Supervisor{
 		Backoff: 1 * time.Second,
 		Log: func(msg string) {
@@ -163,11 +115,13 @@ func TestFailing(t *testing.T) {
 
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	supervisor.Serve(ctx)
-
 	countService(t, &supervisor)
+
 }
 
 func TestAddServiceAfterServe(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	svc1 := Simpleservice(1)
@@ -177,6 +131,7 @@ func TestAddServiceAfterServe(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		supervisor.Serve(ctx)
+		countService(t, &supervisor)
 		done <- struct{}{}
 	}()
 
@@ -189,10 +144,11 @@ func TestAddServiceAfterServe(t *testing.T) {
 	<-ctx.Done()
 	<-done
 
-	countService(t, &supervisor)
 }
 
 func TestRemoveServiceAfterServe(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	svc1 := Simpleservice(1)
@@ -205,6 +161,7 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 
 	go func() {
 		supervisor.Serve(ctx)
+		countService(t, &supervisor)
 		done <- struct{}{}
 	}()
 
@@ -218,7 +175,6 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 
 	<-supervisor.startedServices
 	supervisor.Remove(svc1.String())
-	fmt.Println("removed service")
 
 	lremoved := getServiceCount(&supervisor)
 	if lbefore != lremoved {
@@ -229,26 +185,11 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 	<-ctx.Done()
 	<-done
 
-	countService(t, &supervisor)
-}
-
-func countService(t *testing.T, s *Supervisor) {
-	s.runningMu.Lock()
-	r := s.running
-	s.runningMu.Unlock()
-	if r != 0 {
-		t.Fatalf("not all services were stopped. possibly a bug: %d services left", r)
-	}
-}
-
-func getServiceCount(s *Supervisor) int {
-	s.servicesMu.Lock()
-	l := len(s.services)
-	s.servicesMu.Unlock()
-	return l
 }
 
 func TestServices(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	svc1 := Simpleservice(1)
@@ -266,7 +207,6 @@ func TestServices(t *testing.T) {
 
 	<-supervisor.startedServices
 	svcs := supervisor.Services()
-	fmt.Println(svcs)
 	for _, svcname := range []string{svc1.String(), svc2.String()} {
 		if _, ok := svcs[svcname]; !ok {
 			t.Errorf("expected service not found: %s", svcname)
@@ -279,36 +219,9 @@ func TestServices(t *testing.T) {
 
 }
 
-type restartableservice struct {
-	id        int
-	restarted chan struct{}
-}
-
-func (s *restartableservice) Serve(ctx context.Context) {
-	fmt.Println("restartable service started:", *s)
-	var i int
-	for {
-		i++
-		select {
-		case <-ctx.Done():
-			fmt.Println("restartableservice service context:", ctx.Err(), s.id, i)
-			return
-		default:
-			fmt.Println("restartableservice service loop:", s.id, i)
-			time.Sleep(500 * time.Millisecond)
-			select {
-			case s.restarted <- struct{}{}:
-			default:
-			}
-		}
-	}
-}
-
-func (s *restartableservice) String() string {
-	return fmt.Sprintf("restartable service %v", *s)
-}
-
 func TestManualCancelation(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	svc1 := Simpleservice(1)
@@ -321,6 +234,7 @@ func TestManualCancelation(t *testing.T) {
 
 	go func() {
 		supervisor.Serve(ctx)
+		countService(t, &supervisor)
 		done <- struct{}{}
 	}()
 
@@ -337,10 +251,11 @@ func TestManualCancelation(t *testing.T) {
 	<-ctx.Done()
 	<-done
 
-	countService(t, &supervisor)
 }
 
 func TestServiceList(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	svc1 := Simpleservice(1)
@@ -351,6 +266,7 @@ func TestServiceList(t *testing.T) {
 
 	go func() {
 		supervisor.Serve(ctx)
+		countService(t, &supervisor)
 		done <- struct{}{}
 	}()
 
@@ -365,31 +281,11 @@ func TestServiceList(t *testing.T) {
 	<-ctx.Done()
 	<-done
 
-	countService(t, &supervisor)
-}
-
-type waitservice struct {
-	mu          sync.Mutex
-	count       int
-	supervisors []int
-}
-
-func (s *waitservice) Serve(ctx context.Context) {
-	s.mu.Lock()
-	s.count++
-	id := ctx.Value("supervisor")
-	if id != nil {
-		s.supervisors = append(s.supervisors, id.(int))
-	}
-	s.mu.Unlock()
-	<-ctx.Done()
-}
-
-func (s *waitservice) String() string {
-	return fmt.Sprintf("wait service %v", s.count)
 }
 
 func TestDoubleStart(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	var svc1 waitservice
@@ -422,9 +318,12 @@ func TestDoubleStart(t *testing.T) {
 		t.Error("wait service should have been started once:", count, "supervisor IDs:", supervisors)
 	}
 	svc1.mu.Unlock()
+
 }
 
 func TestRestart(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	var svc1 waitservice
@@ -449,20 +348,12 @@ func TestRestart(t *testing.T) {
 	if svc1.count != 2 {
 		t.Error("wait service should have been started twice:", svc1.count)
 	}
-}
 
-type defectiveservice struct{}
-
-func (s *defectiveservice) Serve(ctx context.Context) {
-	fmt.Println(ctx.Value("missing key").(int)) // shall panic when nil
-	<-ctx.Done()
-}
-
-func (s *defectiveservice) String() string {
-	return fmt.Sprintf("defective service")
 }
 
 func TestFailingRestarts(t *testing.T) {
+	t.Parallel()
+
 	var supervisor Supervisor
 
 	var svc1 defectiveservice
@@ -485,10 +376,132 @@ func TestFailingRestarts(t *testing.T) {
 	}
 
 	// should arrive here with no panic
+
 }
 
-func TestProfile(t *testing.T) {
-	for _, p := range pprof.Profiles() {
-		t.Logf("%v %v", p.Name(), p.Count())
+type defectiveservice struct{}
+
+func (s *defectiveservice) Serve(ctx context.Context) {
+	<-ctx.Done()
+}
+
+func (s *defectiveservice) String() string {
+	return fmt.Sprintf("defective service")
+}
+
+type failingservice int
+
+func (s *failingservice) Serve(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		time.Sleep(100 * time.Millisecond)
+		*s++
+		return
 	}
+}
+
+func (s *failingservice) String() string {
+	return fmt.Sprintf("failing service %v", *s)
+}
+
+type panicservice int
+
+func (s *panicservice) Serve(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			time.Sleep(100 * time.Millisecond)
+			panic("forcing panic")
+		}
+	}
+}
+
+func (s *panicservice) String() string {
+	return fmt.Sprintf("panic service %v", *s)
+}
+
+type restartableservice struct {
+	id        int
+	restarted chan struct{}
+}
+
+func (s *restartableservice) Serve(ctx context.Context) {
+	var i int
+	for {
+		i++
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			time.Sleep(500 * time.Millisecond)
+			select {
+			case s.restarted <- struct{}{}:
+			default:
+			}
+		}
+	}
+}
+
+func (s *restartableservice) String() string {
+	return fmt.Sprintf("restartable service %v", *s)
+}
+
+type Simpleservice int
+
+func (s *Simpleservice) String() string {
+	return fmt.Sprintf("simple service %d", int(*s))
+}
+
+func (s *Simpleservice) Serve(ctx context.Context) {
+	var i int
+	for {
+		i++
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+}
+
+type waitservice struct {
+	mu          sync.Mutex
+	count       int
+	supervisors []int
+}
+
+func (s *waitservice) Serve(ctx context.Context) {
+	s.mu.Lock()
+	s.count++
+	id := ctx.Value("supervisor")
+	if id != nil {
+		s.supervisors = append(s.supervisors, id.(int))
+	}
+	s.mu.Unlock()
+	<-ctx.Done()
+}
+
+func (s *waitservice) String() string {
+	return fmt.Sprintf("wait service %v", s.count)
+}
+
+func countService(t *testing.T, s *Supervisor) {
+	s.runningMu.Lock()
+	r := s.running
+	s.runningMu.Unlock()
+	if r != 0 {
+		t.Fatalf("not all services were stopped. possibly a bug: %d services left", r)
+	}
+}
+
+func getServiceCount(s *Supervisor) int {
+	s.servicesMu.Lock()
+	l := len(s.services)
+	s.servicesMu.Unlock()
+	return l
 }

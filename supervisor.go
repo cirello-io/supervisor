@@ -170,11 +170,17 @@ func (s *Supervisor) Services() map[string]context.CancelFunc {
 
 func (s *Supervisor) serve(ctx context.Context) {
 	go func(ctx context.Context) {
-		for range s.addedService {
-			s.startServices(ctx)
+		for {
 			select {
-			case s.startedServices <- struct{}{}:
-			default:
+			case <-s.addedService:
+				s.startServices(ctx)
+				select {
+				case s.startedServices <- struct{}{}:
+				default:
+				}
+
+			case <-ctx.Done():
+				return
 			}
 		}
 	}(ctx)

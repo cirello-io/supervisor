@@ -322,10 +322,11 @@ func TestRestart(t *testing.T) {
 		wg.Wait()
 	}
 
+	svc1.mu.Lock()
 	if svc1.count != 2 {
 		t.Error("wait service should have been started twice:", svc1.count)
 	}
-
+	svc1.mu.Unlock()
 }
 
 func TestFailingRestarts(t *testing.T) {

@@ -234,7 +234,7 @@ func (s *Supervisor) startServices(ctx context.Context) {
 					svc.Serve(c)
 
 					select {
-					case <-c.Done():
+					case <-ctx.Done():
 						return false
 					default:
 						return true

@@ -94,7 +94,7 @@ func (s *Supervisor) prepare() {
 		s.backoff = make(map[string]*backoff)
 		s.cancelations = make(map[string]context.CancelFunc)
 		s.services = make(map[string]Service)
-		s.startedServices = make(chan struct{})
+		s.startedServices = make(chan struct{}, 1)
 		s.stoppedService = make(chan struct{}, 1)
 
 		if s.Log == nil {

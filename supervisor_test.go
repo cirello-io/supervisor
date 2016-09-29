@@ -2,6 +2,7 @@ package supervisor
 
 import (
 	"fmt"
+	"runtime/pprof"
 	"testing"
 	"time"
 
@@ -378,4 +379,10 @@ func TestDoubleStart(t *testing.T) {
 	<-done
 
 	countService(t, &supervisor)
+}
+
+func TestProfile(t *testing.T) {
+	for _, p := range pprof.Profiles() {
+		t.Logf("%v %v", p.Name(), p.Count())
+	}
 }

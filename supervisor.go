@@ -181,9 +181,6 @@ func (s *Supervisor) serve(ctx context.Context) {
 
 	<-ctx.Done()
 	s.cancellationsMu.Lock()
-	for _, c := range s.cancellations {
-		c()
-	}
 	s.cancellations = make(map[string]context.CancelFunc)
 	s.cancellationsMu.Unlock()
 

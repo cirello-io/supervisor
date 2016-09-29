@@ -120,7 +120,7 @@ func (s *panicservice) String() string {
 
 func TestPanic(t *testing.T) {
 	var supervisor Supervisor
-
+	supervisor.Backoff = 500 * time.Millisecond
 	svc1 := panicservice(1)
 	supervisor.Add(&svc1)
 

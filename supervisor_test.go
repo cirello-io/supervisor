@@ -322,12 +322,40 @@ func TestManualCancelation(t *testing.T) {
 
 	<-supervisor.startedServices
 
-	svcs := supervisor.Services()
+	svcs := supervisor.Cancelations()
 	svcancel := svcs[svc2.String()]
 	svcancel()
 
 	<-svc2.restarted
 	<-svc2.restarted
+
+	cancel()
+	<-ctx.Done()
+	<-done
+
+	countService(t, &supervisor)
+}
+
+func TestServiceList(t *testing.T) {
+	var supervisor Supervisor
+
+	svc1 := Simpleservice(1)
+	supervisor.Add(&svc1)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	done := make(chan struct{})
+
+	go func() {
+		supervisor.Serve(ctx)
+		done <- struct{}{}
+	}()
+
+	<-supervisor.startedServices
+
+	svcs := supervisor.Services()
+	if svc, ok := svcs[svc1.String()]; !ok || &svc1 != svc.(*Simpleservice) {
+		t.Errorf("could not find service when listing them. %s missing", svc1.String())
+	}
 
 	cancel()
 	<-ctx.Done()

@@ -132,17 +132,15 @@ func TestPanic(t *testing.T) {
 type failingservice int
 
 func (s *failingservice) Serve(ctx context.Context) {
-	for {
-		fmt.Println("failing service started:", *s, "times")
-		select {
-		case <-ctx.Done():
-			fmt.Println("failing service context:", ctx.Err(), *s, "times")
-			return
-		default:
-			time.Sleep(100 * time.Millisecond)
-			*s++
-			return
-		}
+	fmt.Println("failing service started:", *s, "times")
+	select {
+	case <-ctx.Done():
+		fmt.Println("failing service context:", ctx.Err(), *s, "times")
+		return
+	default:
+		time.Sleep(100 * time.Millisecond)
+		*s++
+		return
 	}
 }
 
@@ -274,4 +272,65 @@ func TestServices(t *testing.T) {
 	<-ctx.Done()
 	<-done
 
+}
+
+type restartableservice struct {
+	id        int
+	restarted chan struct{}
+}
+
+func (s *restartableservice) Serve(ctx context.Context) {
+	fmt.Println("restartable service started:", *s)
+	var i int
+	for {
+		i++
+		select {
+		case <-ctx.Done():
+			fmt.Println("restartableservice service context:", ctx.Err(), s.id, i)
+			return
+		default:
+			fmt.Println("restartableservice service loop:", s.id, i)
+			time.Sleep(500 * time.Millisecond)
+			select {
+			case s.restarted <- struct{}{}:
+			default:
+			}
+		}
+	}
+}
+
+func (s *restartableservice) String() string {
+	return fmt.Sprintf("restartable service %v", *s)
+}
+
+func TestManualCancelation(t *testing.T) {
+	var supervisor Supervisor
+
+	svc1 := simpleservice(1)
+	supervisor.Add(&svc1)
+	svc2 := restartableservice{2, make(chan struct{})}
+	supervisor.Add(&svc2)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	done := make(chan struct{})
+
+	go func() {
+		supervisor.Serve(ctx)
+		done <- struct{}{}
+	}()
+
+	<-supervisor.startedServices
+
+	svcs := supervisor.Services()
+	svcancel := svcs[svc2.String()]
+	svcancel()
+
+	<-svc2.restarted
+	<-svc2.restarted
+
+	cancel()
+	<-ctx.Done()
+	<-done
+
+	countService(t, &supervisor)
 }

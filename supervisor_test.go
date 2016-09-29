@@ -66,8 +66,12 @@ func TestCascaded(t *testing.T) {
 func TestPanic(t *testing.T) {
 	t.Parallel()
 
-	var supervisor Supervisor
-	supervisor.Backoff = 500 * time.Millisecond
+	supervisor := Supervisor{
+		Backoff: 500 * time.Millisecond,
+		Log: func(msg string) {
+			t.Log("supervisor log (panic):", msg)
+		},
+	}
 	svc1 := panicservice(1)
 	supervisor.Add(&svc1)
 
@@ -83,7 +87,7 @@ func TestFailing(t *testing.T) {
 	supervisor := Supervisor{
 		Backoff: 1 * time.Second,
 		Log: func(msg string) {
-			t.Log("supervisor log:", msg)
+			t.Log("supervisor log (failing):", msg)
 		},
 	}
 
@@ -198,7 +202,11 @@ func TestServices(t *testing.T) {
 func TestManualCancelation(t *testing.T) {
 	t.Parallel()
 
-	var supervisor Supervisor
+	supervisor := Supervisor{
+		Log: func(msg string) {
+			t.Log("supervisor log (restartable):", msg)
+		},
+	}
 
 	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)

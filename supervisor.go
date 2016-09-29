@@ -226,8 +226,8 @@ func (s *Supervisor) startServices(ctx context.Context) {
 		}
 
 		wg.Add(1)
-		s.runningServices.Add(1)
 		go func(name string, svc Service) {
+			s.runningServices.Add(1)
 			wg.Done()
 			for {
 				retry := func() (retry bool) {

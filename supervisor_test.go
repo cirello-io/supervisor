@@ -354,7 +354,6 @@ func TestFailingRestarts(t *testing.T) {
 	}
 
 	// should arrive here with no panic
-
 }
 
 type defectiveservice struct{}

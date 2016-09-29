@@ -306,27 +306,26 @@ func TestRestart(t *testing.T) {
 	var svc1 waitservice
 	supervisor.Add(&svc1)
 
-	for i := 0; i < 2; i++ {
+	for i := 1; i <= 2; i++ {
 		var wg sync.WaitGroup
 		wg.Add(1)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		go func() {
+		go func(i int) {
 			supervisor.Serve(ctx)
+			svc1.mu.Lock()
+			if svc1.count != i {
+				t.Errorf("wait service should have been started %d. got: %d", i, svc1.count)
+			}
+			svc1.mu.Unlock()
 			wg.Done()
-		}()
+		}(i)
 		<-supervisor.startedServices
 
 		cancel()
 		<-ctx.Done()
 		wg.Wait()
 	}
-
-	svc1.mu.Lock()
-	if svc1.count != 2 {
-		t.Error("wait service should have been started twice:", svc1.count)
-	}
-	svc1.mu.Unlock()
 }
 
 func TestFailingRestarts(t *testing.T) {

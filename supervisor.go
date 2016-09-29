@@ -140,7 +140,6 @@ func (s *Supervisor) Remove(name string) {
 
 	s.servicesMu.Lock()
 	defer s.servicesMu.Unlock()
-
 	if _, ok := s.services[name]; !ok {
 		return
 	}
@@ -176,8 +175,19 @@ func (s *Supervisor) Serve(ctx context.Context) {
 	s.startedMu.Unlock()
 }
 
-// Services return a list of service names and their cancellation calls
-func (s *Supervisor) Services() map[string]context.CancelFunc {
+// Services return a list of services
+func (s *Supervisor) Services() map[string]Service {
+	svclist := make(map[string]Service)
+	s.servicesMu.Lock()
+	for k, v := range s.services {
+		svclist[k] = v
+	}
+	s.servicesMu.Unlock()
+	return svclist
+}
+
+// Cancelations return a list of services names and their cancellation calls
+func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 	svclist := make(map[string]context.CancelFunc)
 	s.cancellationsMu.Lock()
 	for k, v := range s.cancellations {

@@ -321,12 +321,12 @@ func TestManualCancelation(t *testing.T) {
 	}()
 
 	<-supervisor.startedServices
+	<-svc2.restarted
 
+	// Testing restart
 	svcs := supervisor.Cancelations()
 	svcancel := svcs[svc2.String()]
 	svcancel()
-
-	<-svc2.restarted
 	<-svc2.restarted
 
 	cancel()

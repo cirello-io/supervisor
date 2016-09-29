@@ -334,3 +334,48 @@ func TestManualCancelation(t *testing.T) {
 
 	countService(t, &supervisor)
 }
+
+type waitservice struct {
+	count int
+}
+
+func (s *waitservice) Serve(ctx context.Context) {
+	s.count++
+	<-ctx.Done()
+}
+
+func (s *waitservice) String() string {
+	return fmt.Sprintf("wait service %v", s.count)
+}
+
+func TestDoubleStart(t *testing.T) {
+	var supervisor Supervisor
+
+	var svc1 waitservice
+	supervisor.Add(&svc1)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	done := make(chan struct{})
+
+	go func() {
+		supervisor.Serve(ctx)
+		done <- struct{}{}
+	}()
+	go func() {
+		supervisor.Serve(ctx)
+		done <- struct{}{}
+	}()
+
+	<-supervisor.startedServices
+
+	if svc1.count != 1 {
+		t.Errorf("wait service should have been started only once:", svc1.count)
+	}
+
+	cancel()
+	<-ctx.Done()
+	<-done
+	<-done
+
+	countService(t, &supervisor)
+}

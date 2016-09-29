@@ -42,7 +42,6 @@ type Service interface {
 // tree. It implements Service, therefore it can be nested if necessary. When
 // passing the Supervisor around, remind to do it as reference (&supervisor).
 type Supervisor struct {
-
 	// Name for this supervisor tree, used for logging.
 	Name string
 
@@ -152,6 +151,7 @@ func (s *Supervisor) Remove(name string) {
 // Serve starts the Supervisor tree. It can be started only once.
 func (s *Supervisor) Serve(ctx context.Context) {
 	s.prepare()
+
 	s.startOnce.Do(func() {
 		s.serve(ctx)
 	})

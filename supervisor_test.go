@@ -280,6 +280,15 @@ func TestDoubleStart(t *testing.T) {
 		go func(i int) {
 			c := context.WithValue(ctx, "supervisor", i)
 			supervisor.Serve(c)
+
+			svc1.mu.Lock()
+			count := svc1.count
+			supervisors := svc1.supervisors
+			if count > 1 {
+				t.Error("wait service should have been started once:", count, "supervisor IDs:", supervisors)
+			}
+			svc1.mu.Unlock()
+
 			wg.Done()
 		}(i)
 	}
@@ -288,14 +297,6 @@ func TestDoubleStart(t *testing.T) {
 	cancel()
 	<-ctx.Done()
 	wg.Wait()
-
-	svc1.mu.Lock()
-	count := svc1.count
-	supervisors := svc1.supervisors
-	if count != 1 {
-		t.Error("wait service should have been started once:", count, "supervisor IDs:", supervisors)
-	}
-	svc1.mu.Unlock()
 }
 
 func TestRestart(t *testing.T) {

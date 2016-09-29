@@ -3,6 +3,7 @@ package supervisor
 import (
 	"fmt"
 	"runtime/pprof"
+	"sync"
 	"testing"
 	"time"
 
@@ -231,8 +232,11 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 	countService(t, &supervisor)
 }
 
-func countService(t *testing.T, supervisor *Supervisor) {
-	if r := supervisor.running; r != 0 {
+func countService(t *testing.T, s *Supervisor) {
+	s.runningMu.Lock()
+	r := s.running
+	s.runningMu.Unlock()
+	if r != 0 {
 		t.Errorf("not all services were stopped. possibly a bug: %d services left", r)
 	}
 }
@@ -365,11 +369,17 @@ func TestServiceList(t *testing.T) {
 }
 
 type waitservice struct {
-	count int
+	mu          sync.Mutex
+	count       int
+	supervisors []int
 }
 
 func (s *waitservice) Serve(ctx context.Context) {
+	s.mu.Lock()
 	s.count++
+	id := ctx.Value("supervisor").(int)
+	s.supervisors = append(s.supervisors, id)
+	s.mu.Unlock()
 	<-ctx.Done()
 }
 
@@ -387,24 +397,29 @@ func TestDoubleStart(t *testing.T) {
 	done := make(chan struct{})
 
 	go func() {
-		supervisor.Serve(ctx)
+		c := context.WithValue(ctx, "supervisor", 1)
+		supervisor.Serve(c)
+		countService(t, &supervisor)
 		done <- struct{}{}
 	}()
 	go func() {
-		supervisor.Serve(ctx)
+		c := context.WithValue(ctx, "supervisor", 2)
+		supervisor.Serve(c)
 	}()
 
 	<-supervisor.startedServices
-
-	if svc1.count != 1 {
-		t.Error("wait service should have been started only once:", svc1.count)
-	}
 
 	cancel()
 	<-ctx.Done()
 	<-done
 
-	countService(t, &supervisor)
+	svc1.mu.Lock()
+	count := svc1.count
+	supervisors := svc1.supervisors
+	if count != 1 {
+		t.Error("wait service should have been started once:", count, "supervisor IDs:", supervisors)
+	}
+	svc1.mu.Unlock()
 }
 
 func TestRestart(t *testing.T) {

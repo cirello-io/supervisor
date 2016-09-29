@@ -150,8 +150,7 @@ func (s *Supervisor) Remove(name string) {
 
 // Serve starts the Supervisor tree. It can be started only once at a time. If
 // stopped (canceled), it can be restarted. It will discard context of
-// successive calls to supervisor when still running, and hold them until
-// original call is complete.
+// successive calls to supervisor when still running.
 func (s *Supervisor) Serve(ctx context.Context) {
 	s.prepare()
 
@@ -298,7 +297,6 @@ func (b *backoff) wait(failureDecay float64, threshold float64, backoffDur time.
 
 // Based from groupcache's singleflight
 type singleflight struct {
-	wg     sync.WaitGroup
 	mu     sync.Mutex
 	flying bool
 }
@@ -307,16 +305,13 @@ func (g *singleflight) do(fn func()) {
 	g.mu.Lock()
 	if g.flying {
 		g.mu.Unlock()
-		g.wg.Wait()
 		return
 	}
 
-	g.wg.Add(1)
 	g.flying = true
 	g.mu.Unlock()
 
 	fn()
-	g.wg.Done()
 
 	g.mu.Lock()
 	g.flying = false

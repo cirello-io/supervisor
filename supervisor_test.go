@@ -113,6 +113,10 @@ func (s *panicservice) Serve(ctx context.Context) {
 	}
 }
 
+func (s *panicservice) String() string {
+	return fmt.Sprintf("panic service %v", *s)
+}
+
 func TestPanic(t *testing.T) {
 	var supervisor Supervisor
 

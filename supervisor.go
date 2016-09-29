@@ -71,8 +71,8 @@ type Supervisor struct {
 	servicesMu sync.Mutex
 	services   map[string]Service
 
-	cancellationsMu sync.Mutex
-	cancellations   map[string]context.CancelFunc
+	cancelationsMu sync.Mutex
+	cancelations   map[string]context.CancelFunc
 
 	backoffMu sync.Mutex
 	backoff   map[string]*backoff
@@ -92,7 +92,7 @@ func (s *Supervisor) prepare() {
 		}
 		s.addedService = make(chan struct{}, 1)
 		s.backoff = make(map[string]*backoff)
-		s.cancellations = make(map[string]context.CancelFunc)
+		s.cancelations = make(map[string]context.CancelFunc)
 		s.services = make(map[string]Service)
 		s.startedServices = make(chan struct{})
 		s.stoppedService = make(chan struct{}, 1)
@@ -144,10 +144,10 @@ func (s *Supervisor) Remove(name string) {
 		return
 	}
 
-	s.cancellationsMu.Lock()
-	defer s.cancellationsMu.Unlock()
-	if c, ok := s.cancellations[name]; ok {
-		delete(s.cancellations, name)
+	s.cancelationsMu.Lock()
+	defer s.cancelationsMu.Unlock()
+	if c, ok := s.cancelations[name]; ok {
+		delete(s.cancelations, name)
 		c()
 	}
 }
@@ -189,11 +189,11 @@ func (s *Supervisor) Services() map[string]Service {
 // Cancelations return a list of services names and their cancellation calls
 func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 	svclist := make(map[string]context.CancelFunc)
-	s.cancellationsMu.Lock()
-	for k, v := range s.cancellations {
+	s.cancelationsMu.Lock()
+	for k, v := range s.cancelations {
 		svclist[k] = v
 	}
-	s.cancellationsMu.Unlock()
+	s.cancelationsMu.Unlock()
 	return svclist
 }
 
@@ -215,9 +215,9 @@ func (s *Supervisor) serve(ctx context.Context) {
 	}(ctx)
 
 	<-ctx.Done()
-	s.cancellationsMu.Lock()
-	s.cancellations = make(map[string]context.CancelFunc)
-	s.cancellationsMu.Unlock()
+	s.cancelationsMu.Lock()
+	s.cancelations = make(map[string]context.CancelFunc)
+	s.cancelationsMu.Unlock()
 
 	for range s.stoppedService {
 		s.runningMu.Lock()
@@ -236,9 +236,9 @@ func (s *Supervisor) startServices(ctx context.Context) {
 	var wg sync.WaitGroup
 
 	for name, svc := range s.services {
-		s.cancellationsMu.Lock()
-		_, ok := s.cancellations[name]
-		s.cancellationsMu.Unlock()
+		s.cancelationsMu.Lock()
+		_, ok := s.cancelations[name]
+		s.cancelationsMu.Unlock()
 		if ok {
 			continue
 		}
@@ -266,9 +266,9 @@ func (s *Supervisor) startServices(ctx context.Context) {
 					}()
 
 					c, cancel := context.WithCancel(ctx)
-					s.cancellationsMu.Lock()
-					s.cancellations[name] = cancel
-					s.cancellationsMu.Unlock()
+					s.cancelationsMu.Lock()
+					s.cancelations[name] = cancel
+					s.cancelationsMu.Unlock()
 					svc.Serve(c)
 
 					select {

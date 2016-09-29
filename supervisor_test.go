@@ -237,7 +237,7 @@ func countService(t *testing.T, s *Supervisor) {
 	r := s.running
 	s.runningMu.Unlock()
 	if r != 0 {
-		t.Errorf("not all services were stopped. possibly a bug: %d services left", r)
+		t.Fatalf("not all services were stopped. possibly a bug: %d services left", r)
 	}
 }
 
@@ -377,8 +377,10 @@ type waitservice struct {
 func (s *waitservice) Serve(ctx context.Context) {
 	s.mu.Lock()
 	s.count++
-	id := ctx.Value("supervisor").(int)
-	s.supervisors = append(s.supervisors, id)
+	id := ctx.Value("supervisor")
+	if id != nil {
+		s.supervisors = append(s.supervisors, id.(int))
+	}
 	s.mu.Unlock()
 	<-ctx.Done()
 }
@@ -423,7 +425,6 @@ func TestDoubleStart(t *testing.T) {
 }
 
 func TestRestart(t *testing.T) {
-
 	var supervisor Supervisor
 
 	var svc1 waitservice
@@ -435,6 +436,7 @@ func TestRestart(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		go func() {
 			supervisor.Serve(ctx)
+			countService(t, &supervisor)
 			done <- struct{}{}
 		}()
 		<-supervisor.startedServices
@@ -447,8 +449,42 @@ func TestRestart(t *testing.T) {
 	if svc1.count != 2 {
 		t.Error("wait service should have been started twice:", svc1.count)
 	}
+}
 
-	countService(t, &supervisor)
+type defectiveservice struct{}
+
+func (s *defectiveservice) Serve(ctx context.Context) {
+	fmt.Println(ctx.Value("missing key").(int)) // shall panic when nil
+	<-ctx.Done()
+}
+
+func (s *defectiveservice) String() string {
+	return fmt.Sprintf("defective service")
+}
+
+func TestFailingRestarts(t *testing.T) {
+	var supervisor Supervisor
+
+	var svc1 defectiveservice
+	supervisor.Add(&svc1)
+
+	for i := 0; i < 2; i++ {
+		done := make(chan struct{})
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		go func() {
+			supervisor.Serve(ctx)
+			countService(t, &supervisor)
+			done <- struct{}{}
+		}()
+		<-supervisor.startedServices
+
+		cancel()
+		<-ctx.Done()
+		<-done
+	}
+
+	// should arrive here with no panic
 }
 
 func TestProfile(t *testing.T) {

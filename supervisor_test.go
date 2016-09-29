@@ -392,7 +392,6 @@ func TestDoubleStart(t *testing.T) {
 	}()
 	go func() {
 		supervisor.Serve(ctx)
-		done <- struct{}{}
 	}()
 
 	<-supervisor.startedServices
@@ -403,7 +402,6 @@ func TestDoubleStart(t *testing.T) {
 
 	cancel()
 	<-ctx.Done()
-	<-done
 	<-done
 
 	countService(t, &supervisor)

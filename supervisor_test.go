@@ -29,7 +29,6 @@ func TestString(t *testing.T) {
 	if got := fmt.Sprintf("%s", &supervisor); got != expected {
 		t.Errorf("error getting supervisor name: %s", got)
 	}
-
 }
 
 func TestSimple(t *testing.T) {
@@ -43,7 +42,6 @@ func TestSimple(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
 	countService(t, &supervisor)
-
 }
 
 func TestMultiple(t *testing.T) {
@@ -59,7 +57,6 @@ func TestMultiple(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
 	countService(t, &supervisor)
-
 }
 
 func TestCascaded(t *testing.T) {
@@ -83,7 +80,6 @@ func TestCascaded(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
 	countService(t, &supervisor)
-
 }
 
 func TestPanic(t *testing.T) {
@@ -97,7 +93,6 @@ func TestPanic(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
 	countService(t, &supervisor)
-
 }
 
 func TestFailing(t *testing.T) {
@@ -116,7 +111,6 @@ func TestFailing(t *testing.T) {
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	supervisor.Serve(ctx)
 	countService(t, &supervisor)
-
 }
 
 func TestAddServiceAfterServe(t *testing.T) {
@@ -128,11 +122,12 @@ func TestAddServiceAfterServe(t *testing.T) {
 	supervisor.Add(&svc1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		supervisor.Serve(ctx)
 		countService(t, &supervisor)
-		done <- struct{}{}
+		wg.Done()
 	}()
 
 	<-supervisor.startedServices
@@ -142,8 +137,7 @@ func TestAddServiceAfterServe(t *testing.T) {
 
 	cancel()
 	<-ctx.Done()
-	<-done
-
+	wg.Wait()
 }
 
 func TestRemoveServiceAfterServe(t *testing.T) {
@@ -157,12 +151,12 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 	supervisor.Add(&svc2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	done := make(chan struct{})
-
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		supervisor.Serve(ctx)
 		countService(t, &supervisor)
-		done <- struct{}{}
+		wg.Done()
 	}()
 
 	lbefore := getServiceCount(&supervisor)
@@ -183,8 +177,7 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 
 	cancel()
 	<-ctx.Done()
-	<-done
-
+	wg.Wait()
 }
 
 func TestServices(t *testing.T) {
@@ -198,11 +191,10 @@ func TestServices(t *testing.T) {
 	supervisor.Add(&svc2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	done := make(chan struct{})
-
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		supervisor.Serve(ctx)
-		done <- struct{}{}
 	}()
 
 	<-supervisor.startedServices
@@ -215,8 +207,7 @@ func TestServices(t *testing.T) {
 
 	cancel()
 	<-ctx.Done()
-	<-done
-
+	wg.Done()
 }
 
 func TestManualCancelation(t *testing.T) {
@@ -230,12 +221,11 @@ func TestManualCancelation(t *testing.T) {
 	supervisor.Add(&svc2)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	done := make(chan struct{})
-
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		supervisor.Serve(ctx)
 		countService(t, &supervisor)
-		done <- struct{}{}
 	}()
 
 	<-supervisor.startedServices
@@ -249,8 +239,7 @@ func TestManualCancelation(t *testing.T) {
 
 	cancel()
 	<-ctx.Done()
-	<-done
-
+	wg.Done()
 }
 
 func TestServiceList(t *testing.T) {
@@ -262,12 +251,11 @@ func TestServiceList(t *testing.T) {
 	supervisor.Add(&svc1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	done := make(chan struct{})
-
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		supervisor.Serve(ctx)
 		countService(t, &supervisor)
-		done <- struct{}{}
 	}()
 
 	<-supervisor.startedServices
@@ -279,8 +267,7 @@ func TestServiceList(t *testing.T) {
 
 	cancel()
 	<-ctx.Done()
-	<-done
-
+	wg.Done()
 }
 
 func TestDoubleStart(t *testing.T) {
@@ -292,24 +279,28 @@ func TestDoubleStart(t *testing.T) {
 	supervisor.Add(&svc1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	done := make(chan struct{})
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		c := context.WithValue(ctx, "supervisor", 1)
 		supervisor.Serve(c)
 		countService(t, &supervisor)
-		done <- struct{}{}
+		wg.Done()
 	}()
+	<-supervisor.startedServices
+
+	wg.Add(1)
 	go func() {
 		c := context.WithValue(ctx, "supervisor", 2)
 		supervisor.Serve(c)
+		countService(t, &supervisor)
+		wg.Done()
 	}()
-
-	<-supervisor.startedServices
 
 	cancel()
 	<-ctx.Done()
-	<-done
+	wg.Wait()
 
 	svc1.mu.Lock()
 	count := svc1.count
@@ -318,7 +309,6 @@ func TestDoubleStart(t *testing.T) {
 		t.Error("wait service should have been started once:", count, "supervisor IDs:", supervisors)
 	}
 	svc1.mu.Unlock()
-
 }
 
 func TestRestart(t *testing.T) {
@@ -330,19 +320,20 @@ func TestRestart(t *testing.T) {
 	supervisor.Add(&svc1)
 
 	for i := 0; i < 2; i++ {
-		done := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(1)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		go func() {
 			supervisor.Serve(ctx)
 			countService(t, &supervisor)
-			done <- struct{}{}
+			wg.Done()
 		}()
 		<-supervisor.startedServices
 
 		cancel()
 		<-ctx.Done()
-		<-done
+		wg.Wait()
 	}
 
 	if svc1.count != 2 {
@@ -360,19 +351,20 @@ func TestFailingRestarts(t *testing.T) {
 	supervisor.Add(&svc1)
 
 	for i := 0; i < 2; i++ {
-		done := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(1)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		go func() {
 			supervisor.Serve(ctx)
 			countService(t, &supervisor)
-			done <- struct{}{}
+			wg.Done()
 		}()
 		<-supervisor.startedServices
 
 		cancel()
 		<-ctx.Done()
-		<-done
+		wg.Wait()
 	}
 
 	// should arrive here with no panic

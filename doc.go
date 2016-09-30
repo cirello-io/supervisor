@@ -5,7 +5,7 @@ This package is a clean reimplementation of github.com/thejerf/suture, aiming
 to be more Go idiomatic, thus less Erlang-like.
 
 It is built on top of context package, with all of its advantages, namely the
-possibility trickle down context-related values and cancellation signals.
+possibility trickle down context-related values and cancelation signals.
 
 Example:
 	package main

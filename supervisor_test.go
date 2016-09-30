@@ -63,6 +63,50 @@ func TestCascaded(t *testing.T) {
 	}
 }
 
+func TestCascadedWithProblems(t *testing.T) {
+	t.Parallel()
+
+	supervisor := Supervisor{
+		Backoff: 1 * time.Second,
+		Log: func(msg string) {
+			t.Log("supervisor log (cascaded with problems):", msg)
+		},
+	}
+	svc1 := waitservice{id: 1}
+	supervisor.Add(&svc1)
+	svc2 := panicservice{id: 2}
+	supervisor.Add(&svc2)
+
+	childSupervisor := Supervisor{
+		Backoff: 1 * time.Second,
+		Log: func(msg string) {
+			t.Log("supervisor log (cascaded with problems - child):", msg)
+		},
+	}
+	svc3 := waitservice{id: 3}
+	childSupervisor.Add(&svc3)
+	svc4 := failingservice{id: 4}
+	childSupervisor.Add(&svc4)
+
+	supervisor.Add(&childSupervisor)
+
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	supervisor.Serve(ctx)
+
+	if count := getServiceCount(&supervisor); count != 3 {
+		t.Errorf("unexpected service count: %v", count)
+	}
+
+	switch {
+	case svc1.count != 1, svc3.count != 1:
+		t.Errorf("services should have been executed only once. %d %d %d %d",
+			svc1.count, svc2.count, svc3.count, svc4.count)
+	case svc2.count <= 1, svc4.count <= 1:
+		t.Errorf("services should have been executed at least once. %d %d %d %d",
+			svc1.count, svc2.count, svc3.count, svc4.count)
+	}
+}
+
 func TestPanic(t *testing.T) {
 	t.Parallel()
 
@@ -72,14 +116,14 @@ func TestPanic(t *testing.T) {
 			t.Log("supervisor log (panic):", msg)
 		},
 	}
-	svc1 := panicservice(1)
+	svc1 := panicservice{id: 1}
 	supervisor.Add(&svc1)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
 
 	// should arrive here with no panic
-	if svc1 == 1 {
+	if svc1.count == 1 {
 		t.Error("the failed service should have been started at least once.")
 	}
 }
@@ -94,14 +138,14 @@ func TestFailing(t *testing.T) {
 		},
 	}
 
-	svc1 := failingservice(1)
+	svc1 := failingservice{id: 1}
 	supervisor.Add(&svc1)
 
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	supervisor.Serve(ctx)
 
 	// should arrive here with no panic
-	if svc1 == 1 {
+	if svc1.count == 1 {
 		t.Error("the failed service should have been started at least once.")
 	}
 }
@@ -372,7 +416,9 @@ func (s *defectiveservice) String() string {
 	return fmt.Sprintf("defective service")
 }
 
-type failingservice int
+type failingservice struct {
+	id, count int
+}
 
 func (s *failingservice) Serve(ctx context.Context) {
 	select {
@@ -380,16 +426,18 @@ func (s *failingservice) Serve(ctx context.Context) {
 		return
 	default:
 		time.Sleep(100 * time.Millisecond)
-		*s++
+		s.count++
 		return
 	}
 }
 
 func (s *failingservice) String() string {
-	return fmt.Sprintf("failing service %v", *s)
+	return fmt.Sprintf("failing service %v", s.id)
 }
 
-type panicservice int
+type panicservice struct {
+	id, count int
+}
 
 func (s *panicservice) Serve(ctx context.Context) {
 	for {
@@ -398,14 +446,14 @@ func (s *panicservice) Serve(ctx context.Context) {
 			return
 		default:
 			time.Sleep(100 * time.Millisecond)
-			*s++
+			s.count++
 			panic("forcing panic")
 		}
 	}
 }
 
 func (s *panicservice) String() string {
-	return fmt.Sprintf("panic service %v", *s)
+	return fmt.Sprintf("panic service %v", s.id)
 }
 
 type restartableservice struct {

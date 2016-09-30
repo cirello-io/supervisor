@@ -225,8 +225,7 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 
 	for name, svc := range s.services {
 		s.cancelationsMu.Lock()
-		_, ok := s.cancelations[name]
-		if ok {
+		if _, ok := s.cancelations[name]; ok {
 			s.cancelationsMu.Unlock()
 			continue
 		}
@@ -273,7 +272,6 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 			}
 			s.runningServices.Done()
 		}(name, svc)
-
 	}
 
 	wg.Wait()
@@ -288,11 +286,12 @@ func (b *backoff) wait(failureDecay float64, threshold float64, backoffDur time.
 	if b.lastfail.IsZero() {
 		b.lastfail = time.Now()
 		b.failures = 1.0
-	} else {
-		b.failures++
-		intervals := time.Since(b.lastfail).Seconds() / failureDecay
-		b.failures = b.failures*math.Pow(.5, intervals) + 1
+		return
 	}
+
+	b.failures++
+	intervals := time.Since(b.lastfail).Seconds() / failureDecay
+	b.failures = b.failures*math.Pow(.5, intervals) + 1
 
 	if b.failures > threshold {
 		log(backoffDur)

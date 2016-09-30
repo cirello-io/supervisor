@@ -147,17 +147,6 @@ func (s *Supervisor) Remove(name string) {
 	}
 }
 
-// Serve starts the Supervisor tree. It can be started only once at a time. If
-// stopped (canceled), it can be restarted. In case of concurrent calls, it will
-// hang until the current call is completed.
-func (s *Supervisor) Serve(ctx context.Context) {
-	s.prepare()
-
-	s.running.Lock()
-	s.serve(ctx)
-	s.running.Unlock()
-}
-
 // Services return a list of services
 func (s *Supervisor) Services() map[string]Service {
 	svclist := make(map[string]Service)
@@ -180,12 +169,15 @@ func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 	return svclist
 }
 
-func (s *Supervisor) startServices(ctx context.Context) {
-	s.startAllServices(ctx)
-	select {
-	case s.started <- struct{}{}:
-	default:
-	}
+// Serve starts the Supervisor tree. It can be started only once at a time. If
+// stopped (canceled), it can be restarted. In case of concurrent calls, it will
+// hang until the current call is completed.
+func (s *Supervisor) Serve(ctx context.Context) {
+	s.prepare()
+
+	s.running.Lock()
+	s.serve(ctx)
+	s.running.Unlock()
 }
 
 func (s *Supervisor) serve(ctx context.Context) {
@@ -197,7 +189,7 @@ func (s *Supervisor) serve(ctx context.Context) {
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go func(ctx context.Context) {
+	go func() {
 		for {
 			select {
 			case <-s.added:
@@ -208,7 +200,7 @@ func (s *Supervisor) serve(ctx context.Context) {
 				return
 			}
 		}
-	}(ctx)
+	}()
 	<-ctx.Done()
 
 	wg.Wait()
@@ -218,6 +210,14 @@ func (s *Supervisor) serve(ctx context.Context) {
 	s.cancelations = make(map[string]context.CancelFunc)
 	s.mu.Unlock()
 	return
+}
+
+func (s *Supervisor) startServices(ctx context.Context) {
+	s.startAllServices(ctx)
+	select {
+	case s.started <- struct{}{}:
+	default:
+	}
 }
 
 func (s *Supervisor) startAllServices(supervisorCtx context.Context) {

@@ -89,7 +89,7 @@ func TestCascadedWithProblems(t *testing.T) {
 	supervisor.Add(&svc2)
 
 	childSupervisor := Supervisor{
-		Backoff: 1 * time.Second,
+		Backoff: 250 * time.Millisecond,
 		Log: func(msg interface{}) {
 			t.Log("supervisor log (cascaded with problems - child):", msg)
 		},

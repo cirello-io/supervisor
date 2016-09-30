@@ -229,6 +229,11 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 			continue
 		}
 
+		// In the edge case that a service has been added, immediately
+		// removed, but the service itself hasn't been started. This
+		// intermediate context shall prevent a nil pointer in
+		// Supervisor.Remove(), but also stops all the subsequent
+		// service restarts. It might deserve a more elegant solution.
 		intermediateCtx, cancel := context.WithCancel(ctx)
 		s.cancelations[name] = cancel
 

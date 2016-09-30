@@ -103,7 +103,9 @@ func (s *Supervisor) prepare() {
 }
 
 // Add inserts into the Supervisor tree a new service. If the Supervisor is
-// already started, it will start it automatically.
+// already started, it will start it automatically. If the same service is added
+// more than once, it will reset its backoff mechanism and force a service
+// restart.
 func (s *Supervisor) Add(service Service) {
 	s.prepare()
 

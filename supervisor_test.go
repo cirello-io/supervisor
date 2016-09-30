@@ -218,7 +218,7 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 
 	supervisor.Remove(svc1.String())
 	lremoved := getServiceCount(&supervisor)
-	if lbefore != lremoved {
+	if lbefore == lremoved {
 		t.Error("the removal of a service should have affected the supervisor:", lbefore, lremoved)
 	}
 

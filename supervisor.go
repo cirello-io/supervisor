@@ -151,6 +151,8 @@ func (s *Supervisor) Remove(name string) {
 		return
 	}
 
+	delete(s.services, name)
+
 	if c, ok := s.terminations[name]; ok {
 		delete(s.terminations, name)
 		c()

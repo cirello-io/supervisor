@@ -258,6 +258,8 @@ func (s *Supervisor) startAllServices(supervisorCtx context.Context) {
 					s.cancelationsMu.Unlock()
 					svc.Serve(ctx)
 
+					// Only stops the service, if the supervisor wants to.
+					// Otherwise, keep restarting.
 					select {
 					case <-supervisorCtx.Done():
 						return false

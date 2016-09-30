@@ -1,6 +1,6 @@
 package supervisor
 
-import "golang.org/x/net/context"
+import "context"
 
 var (
 	// DefaultSupervisor is the default Supervisor used in this package.

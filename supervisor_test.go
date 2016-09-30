@@ -363,43 +363,6 @@ func TestRestart(t *testing.T) {
 	}
 }
 
-func TestFailingRestarts(t *testing.T) {
-	t.Parallel()
-
-	var supervisor Supervisor
-
-	var svc1 defectiveservice
-	supervisor.Add(&svc1)
-
-	for i := 0; i < 2; i++ {
-		var wg sync.WaitGroup
-		wg.Add(1)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		go func() {
-			supervisor.Serve(ctx)
-			wg.Done()
-		}()
-		<-supervisor.startedServices
-
-		cancel()
-		<-ctx.Done()
-		wg.Wait()
-	}
-
-	// should arrive here with no panic
-}
-
-type defectiveservice struct{}
-
-func (s *defectiveservice) Serve(ctx context.Context) {
-	<-ctx.Done()
-}
-
-func (s *defectiveservice) String() string {
-	return fmt.Sprintf("defective service")
-}
-
 type failingservice struct {
 	id, count int
 }

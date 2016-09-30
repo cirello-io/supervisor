@@ -78,6 +78,7 @@ type Supervisor struct {
 	mu           sync.Mutex
 	services     map[string]Service            // added services
 	cancelations map[string]context.CancelFunc // each service cancelation
+	terminations map[string]context.CancelFunc // each service termination call
 	backoff      map[string]*backoff           // backoff calculator for failures
 }
 
@@ -95,6 +96,7 @@ func (s *Supervisor) prepare() {
 		s.cancelations = make(map[string]context.CancelFunc)
 		s.services = make(map[string]Service)
 		s.started = make(chan struct{}, 1)
+		s.terminations = make(map[string]context.CancelFunc)
 
 		if s.Log == nil {
 			s.Log = func(msg interface{}) {
@@ -141,9 +143,13 @@ func (s *Supervisor) Remove(name string) {
 		return
 	}
 
-	if c, ok := s.cancelations[name]; ok {
-		delete(s.cancelations, name)
+	if c, ok := s.terminations[name]; ok {
+		delete(s.terminations, name)
 		c()
+	}
+
+	if _, ok := s.cancelations[name]; ok {
+		delete(s.cancelations, name)
 	}
 }
 
@@ -237,8 +243,9 @@ func (s *Supervisor) startAllServices(supervisorCtx context.Context) {
 		// intermediate context shall prevent a nil pointer in
 		// Supervisor.Remove(), but also stops all the subsequent
 		// service restarts. It might deserve a more elegant solution.
-		intermediateCtx, cancel := context.WithCancel(supervisorCtx)
-		s.cancelations[name] = cancel
+		terminateCtx, terminate := context.WithCancel(supervisorCtx)
+		s.cancelations[name] = terminate
+		s.terminations[name] = terminate
 
 		go func(name string, svc Service) {
 			s.runningServices.Add(1)
@@ -252,7 +259,7 @@ func (s *Supervisor) startAllServices(supervisorCtx context.Context) {
 						}
 					}()
 
-					ctx, cancel := context.WithCancel(intermediateCtx)
+					ctx, cancel := context.WithCancel(terminateCtx)
 					s.mu.Lock()
 					s.cancelations[name] = cancel
 					s.mu.Unlock()
@@ -261,6 +268,8 @@ func (s *Supervisor) startAllServices(supervisorCtx context.Context) {
 					// Only stops the service, if the supervisor wants to.
 					// Otherwise, keep restarting.
 					select {
+					case <-terminateCtx.Done():
+						return false
 					case <-supervisorCtx.Done():
 						return false
 					default:

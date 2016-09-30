@@ -227,6 +227,31 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 	wg.Wait()
 }
 
+func TestRemoveServiceAfterServeBug(t *testing.T) {
+	t.Parallel()
+
+	var supervisor Supervisor
+	svc1 := waitservice{id: 1}
+	supervisor.Add(&svc1)
+
+	ctx, _ := context.WithTimeout(context.Background(), 2*time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+	<-supervisor.started
+
+	supervisor.Remove(svc1.String())
+
+	wg.Wait()
+
+	if svc1.count > 1 {
+		t.Errorf("the removal of a service should have terminated it. It was started %v times", svc1.count)
+	}
+}
+
 func TestServices(t *testing.T) {
 	t.Parallel()
 

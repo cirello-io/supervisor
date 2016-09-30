@@ -19,6 +19,7 @@ Example:
 		"fmt"
 		"os"
 		"os/signal"
+		"time"
 
 		"cirello.io/supervisor"
 		"golang.org/x/net/context"
@@ -51,9 +52,10 @@ Example:
 		// Or, using context.Context to propagate behavior:
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
-		ctx, cancel := context.WithCancel(context.Background)
+		ctx, cancel := context.WithCancel(context.Background())
 		go func(){
 			<-c
+			fmt.Println("halting supervisor...")
 			cancel()
 		}()
 		supervisor.ServeContext(ctx)

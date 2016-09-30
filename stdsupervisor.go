@@ -28,7 +28,7 @@ func Services() map[string]Service {
 }
 
 // Cancelations return a list of services names of DefaultSupervisor and their
-// cancellation calls. These calls be used to force a service restart.
+// cancelation calls. These calls be used to force a service restart.
 func Cancelations() map[string]context.CancelFunc {
 	return DefaultSupervisor.Cancelations()
 }

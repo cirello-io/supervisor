@@ -14,8 +14,6 @@ supervisor.Service can be added to a tree.
 	     │       └─▶ Service
 	     └─▶ Service
 
-golang.org/x/net/context is used for backwards compatibility.
-
 Example:
 	package main
 
@@ -26,7 +24,7 @@ Example:
 		"time"
 
 		"cirello.io/supervisor"
-		"golang.org/x/net/context"
+		"context"
 	)
 
 	type Simpleservice int

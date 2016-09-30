@@ -1,11 +1,20 @@
 /*
 Package supervisor provides supervisor trees for Go applications.
 
-This package is a clean reimplementation of github.com/thejerf/suture, aiming
-to be more Go idiomatic, thus less Erlang-like.
-
+This package implements supervisor trees, similar to what Erlang runtime offers.
 It is built on top of context package, with all of its advantages, namely the
 possibility trickle down context-related values and cancelation signals.
+
+A supervisor tree can be composed either of services or other supervisors - each
+supervisor can have its own set of configurations. Any instance of
+supervisor.Service can be added to a tree.
+
+	Supervisor
+	     ├─▶ Supervisor
+	     │       └─▶ Service
+	     └─▶ Service
+
+golang.org/x/net/context is used for backwards compatibility.
 
 Example:
 	package main
@@ -58,6 +67,8 @@ Example:
 
 TheJerf's blog post about Suture is a very good and helpful read to understand
 how this package has been implemented.
+
+This is package is inspired by github.com/thejerf/suture
 
 http://www.jerf.org/iri/post/2930
 */

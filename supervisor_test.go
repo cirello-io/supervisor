@@ -327,42 +327,6 @@ func TestServiceList(t *testing.T) {
 	wg.Done()
 }
 
-func TestDoubleStart(t *testing.T) {
-	t.Parallel()
-
-	var supervisor Supervisor
-
-	var svc1 waitservice
-	supervisor.Add(&svc1)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	var wg sync.WaitGroup
-
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func(i int) {
-			c := context.WithValue(ctx, "supervisor", i)
-			supervisor.Serve(c)
-
-			svc1.mu.Lock()
-			count := svc1.count
-			supervisors := svc1.supervisors
-			if count > 1 {
-				t.Error("wait service should have been started once:", count, "supervisor IDs:", supervisors)
-			}
-			svc1.mu.Unlock()
-
-			wg.Done()
-		}(i)
-	}
-	<-supervisor.startedServices
-
-	cancel()
-	<-ctx.Done()
-	wg.Wait()
-}
-
 func TestRestart(t *testing.T) {
 	t.Parallel()
 

@@ -22,7 +22,7 @@ func Remove(name string) {
 	DefaultSupervisor.Remove(name)
 }
 
-// Services return a list of services of DefaultSupervisor
+// Services return a list of services of DefaultSupervisor.
 func Services() map[string]Service {
 	return DefaultSupervisor.Services()
 }

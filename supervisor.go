@@ -46,19 +46,19 @@ type Supervisor struct {
 	Name string
 
 	// FailureDecay is the timespan on which the current failure count will
-	// be halved. Default: 30s (represented in seconds)
+	// be halved. Default: 30s (represented in seconds).
 	FailureDecay float64
 
 	// FailureThreshold is the maximum accepted number of failures, after
 	// decay adjustment, that shall trigger the back-off wait.
-	// Default: 5 failures
+	// Default: 5 failures.
 	FailureThreshold float64
 
 	// Backoff is the wait duration when hit threshold. Default: 15s
 	Backoff time.Duration
 
 	// Log is a replaceable function used for overall logging.
-	// Default: log.Printf
+	// Default: log.Printf.
 	Log func(interface{})
 
 	// indicates that supervisor is ready for use.
@@ -69,7 +69,7 @@ type Supervisor struct {
 	added chan struct{}
 
 	// signals that confirm that at least one batch of added services has
-	// been started. Used mainly for tests
+	// been started. Used mainly for tests.
 	started chan struct{}
 
 	// indicates that supervisor is running, or has running services.
@@ -174,7 +174,7 @@ func (s *Supervisor) Services() map[string]Service {
 	return svclist
 }
 
-// Cancelations return a list of services names and their cancellation calls
+// Cancelations return a list of services names and their cancellation calls.
 func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 	svclist := make(map[string]context.CancelFunc)
 	s.mu.Lock()

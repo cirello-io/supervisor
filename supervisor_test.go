@@ -79,9 +79,6 @@ func TestCascadedWithProblems(t *testing.T) {
 
 	childSupervisor := Supervisor{
 		Backoff: 1 * time.Second,
-		Log: func(msg string) {
-			t.Log("supervisor log (cascaded with problems - child):", msg)
-		},
 	}
 	svc3 := waitservice{id: 3}
 	childSupervisor.Add(&svc3)

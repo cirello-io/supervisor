@@ -7,11 +7,6 @@ to be more Go idiomatic, thus less Erlang-like.
 It is built on top of context package, with all of its advantages, namely the
 possibility trickle down context-related values and cancellation signals.
 
-TheJerf's blog post about Suture is a very good and helpful read to understand
-how this package has been implemented.
-
-http://www.jerf.org/iri/post/2930
-
 Example:
 	package main
 
@@ -60,5 +55,10 @@ Example:
 		}()
 		supervisor.ServeContext(ctx)
 	}
+
+TheJerf's blog post about Suture is a very good and helpful read to understand
+how this package has been implemented.
+
+http://www.jerf.org/iri/post/2930
 */
 package supervisor // import "cirello.io/supervisor"

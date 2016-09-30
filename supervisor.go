@@ -195,6 +195,8 @@ func (s *Supervisor) serve(ctx context.Context) {
 	}
 	s.startServices(ctx)
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func(ctx context.Context) {
 		for {
 			select {
@@ -202,12 +204,14 @@ func (s *Supervisor) serve(ctx context.Context) {
 				s.startServices(ctx)
 
 			case <-ctx.Done():
+				wg.Done()
 				return
 			}
 		}
 	}(ctx)
 	<-ctx.Done()
 
+	wg.Wait()
 	s.runningServices.Wait()
 
 	s.mu.Lock()

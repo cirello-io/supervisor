@@ -35,7 +35,6 @@ func TestCascaded(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
-
 	svc1 := waitservice{id: 1}
 	supervisor.Add(&svc1)
 	svc2 := waitservice{id: 2}
@@ -46,7 +45,6 @@ func TestCascaded(t *testing.T) {
 	childSupervisor.Add(&svc3)
 	svc4 := waitservice{id: 4}
 	childSupervisor.Add(&svc4)
-
 	supervisor.Add(&childSupervisor)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
@@ -69,7 +67,6 @@ func TestLog(t *testing.T) {
 	supervisor := Supervisor{
 		Backoff: 500 * time.Millisecond,
 	}
-
 	svc1 := panicservice{id: 1}
 	supervisor.Add(&svc1)
 
@@ -151,7 +148,6 @@ func TestFailing(t *testing.T) {
 			t.Log("supervisor log (failing):", msg)
 		},
 	}
-
 	svc1 := failingservice{id: 1}
 	supervisor.Add(&svc1)
 
@@ -168,7 +164,6 @@ func TestAddServiceAfterServe(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
-
 	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
 
@@ -179,8 +174,8 @@ func TestAddServiceAfterServe(t *testing.T) {
 		supervisor.Serve(ctx)
 		wg.Done()
 	}()
-
 	<-supervisor.startedServices
+
 	svc2 := Simpleservice(2)
 	supervisor.Add(&svc2)
 	<-supervisor.startedServices
@@ -198,7 +193,6 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
-
 	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
 	svc2 := Simpleservice(2)
@@ -221,8 +215,8 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 	}
 
 	<-supervisor.startedServices
-	supervisor.Remove(svc1.String())
 
+	supervisor.Remove(svc1.String())
 	lremoved := getServiceCount(&supervisor)
 	if lbefore != lremoved {
 		t.Error("the removal of a service should have affected the supervisor:", lbefore, lremoved)
@@ -237,7 +231,6 @@ func TestServices(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
-
 	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
 	svc2 := Simpleservice(2)
@@ -249,8 +242,8 @@ func TestServices(t *testing.T) {
 	go func() {
 		supervisor.Serve(ctx)
 	}()
-
 	<-supervisor.startedServices
+
 	svcs := supervisor.Services()
 	for _, svcname := range []string{svc1.String(), svc2.String()} {
 		if _, ok := svcs[svcname]; !ok {
@@ -271,7 +264,6 @@ func TestManualCancelation(t *testing.T) {
 			t.Log("supervisor log (restartable):", msg)
 		},
 	}
-
 	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
 	svc2 := restartableservice{2, make(chan struct{})}
@@ -283,11 +275,10 @@ func TestManualCancelation(t *testing.T) {
 	go func() {
 		supervisor.Serve(ctx)
 	}()
-
 	<-supervisor.startedServices
-	<-svc2.restarted
 
 	// Testing restart
+	<-svc2.restarted
 	svcs := supervisor.Cancelations()
 	svcancel := svcs[svc2.String()]
 	svcancel()
@@ -304,7 +295,6 @@ func TestServiceList(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
-
 	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
 
@@ -314,7 +304,6 @@ func TestServiceList(t *testing.T) {
 	go func() {
 		supervisor.Serve(ctx)
 	}()
-
 	<-supervisor.startedServices
 
 	svcs := supervisor.Services()
@@ -331,7 +320,6 @@ func TestRestart(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
-
 	var svc1 waitservice
 	supervisor.Add(&svc1)
 

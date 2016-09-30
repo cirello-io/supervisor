@@ -217,7 +217,7 @@ func (s *Supervisor) serve(ctx context.Context) {
 	return
 }
 
-func (s *Supervisor) startAllServices(ctx context.Context) {
+func (s *Supervisor) startAllServices(supervisorCtx context.Context) {
 	s.servicesMu.Lock()
 	defer s.servicesMu.Unlock()
 
@@ -236,7 +236,7 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 		// intermediate context shall prevent a nil pointer in
 		// Supervisor.Remove(), but also stops all the subsequent
 		// service restarts. It might deserve a more elegant solution.
-		intermediateCtx, cancel := context.WithCancel(ctx)
+		intermediateCtx, cancel := context.WithCancel(supervisorCtx)
 		s.cancelations[name] = cancel
 		s.cancelationsMu.Unlock()
 
@@ -252,14 +252,14 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 						}
 					}()
 
-					c, cancel := context.WithCancel(intermediateCtx)
+					ctx, cancel := context.WithCancel(intermediateCtx)
 					s.cancelationsMu.Lock()
 					s.cancelations[name] = cancel
 					s.cancelationsMu.Unlock()
-					svc.Serve(c)
+					svc.Serve(ctx)
 
 					select {
-					case <-ctx.Done():
+					case <-supervisorCtx.Done():
 						return false
 					default:
 						return true

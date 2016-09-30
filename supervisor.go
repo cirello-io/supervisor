@@ -265,17 +265,16 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 						return true
 					}
 				}()
-				if retry {
-					s.Log(fmt.Sprintf("restarting %s", name))
-					s.backoffMu.Lock()
-					b := s.backoff[name]
-					s.backoffMu.Unlock()
-					b.wait(s.FailureDecay, s.FailureThreshold, s.Backoff, func(msg interface{}) {
-						s.Log(fmt.Sprintf("backoff %s: %v", name, msg))
-					})
-					continue
+				if !retry {
+					break
 				}
-				break
+				s.Log(fmt.Sprintf("restarting %s", name))
+				s.backoffMu.Lock()
+				b := s.backoff[name]
+				s.backoffMu.Unlock()
+				b.wait(s.FailureDecay, s.FailureThreshold, s.Backoff, func(msg interface{}) {
+					s.Log(fmt.Sprintf("backoff %s: %v", name, msg))
+				})
 			}
 			s.runningServices.Done()
 		}(name, svc)

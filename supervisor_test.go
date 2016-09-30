@@ -174,11 +174,11 @@ func TestAddServiceAfterServe(t *testing.T) {
 		supervisor.Serve(ctx)
 		wg.Done()
 	}()
-	<-supervisor.startedServices
+	<-supervisor.started
 
 	svc2 := Simpleservice(2)
 	supervisor.Add(&svc2)
-	<-supervisor.startedServices
+	<-supervisor.started
 
 	cancel()
 	<-ctx.Done()
@@ -214,7 +214,7 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 		t.Error("the removal of an unknown service shouldn't happen")
 	}
 
-	<-supervisor.startedServices
+	<-supervisor.started
 
 	supervisor.Remove(svc1.String())
 	lremoved := getServiceCount(&supervisor)
@@ -242,7 +242,7 @@ func TestServices(t *testing.T) {
 	go func() {
 		supervisor.Serve(ctx)
 	}()
-	<-supervisor.startedServices
+	<-supervisor.started
 
 	svcs := supervisor.Services()
 	for _, svcname := range []string{svc1.String(), svc2.String()} {
@@ -275,7 +275,7 @@ func TestManualCancelation(t *testing.T) {
 	go func() {
 		supervisor.Serve(ctx)
 	}()
-	<-supervisor.startedServices
+	<-supervisor.started
 
 	// Testing restart
 	<-svc2.restarted
@@ -304,7 +304,7 @@ func TestServiceList(t *testing.T) {
 	go func() {
 		supervisor.Serve(ctx)
 	}()
-	<-supervisor.startedServices
+	<-supervisor.started
 
 	svcs := supervisor.Services()
 	if svc, ok := svcs[svc1.String()]; !ok || &svc1 != svc.(*Simpleservice) {
@@ -439,8 +439,8 @@ func (s *waitservice) String() string {
 }
 
 func getServiceCount(s *Supervisor) int {
-	s.servicesMu.Lock()
+	s.mu.Lock()
 	l := len(s.services)
-	s.servicesMu.Unlock()
+	s.mu.Unlock()
 	return l
 }

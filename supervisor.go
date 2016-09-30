@@ -161,6 +161,7 @@ func (s *Supervisor) Services() map[string]Service {
 }
 
 // Cancelations return a list of services names and their cancellation calls.
+// These calls be used to force a service restart.
 func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 	svclist := make(map[string]context.CancelFunc)
 	s.mu.Lock()

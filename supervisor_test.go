@@ -79,6 +79,9 @@ func TestPanic(t *testing.T) {
 	supervisor.Serve(ctx)
 
 	// should arrive here with no panic
+	if svc1 == 1 {
+		t.Error("the failed service should have been started at least once.")
+	}
 }
 
 func TestFailing(t *testing.T) {
@@ -98,6 +101,9 @@ func TestFailing(t *testing.T) {
 	supervisor.Serve(ctx)
 
 	// should arrive here with no panic
+	if svc1 == 1 {
+		t.Error("the failed service should have been started at least once.")
+	}
 }
 
 func TestAddServiceAfterServe(t *testing.T) {
@@ -392,6 +398,7 @@ func (s *panicservice) Serve(ctx context.Context) {
 			return
 		default:
 			time.Sleep(100 * time.Millisecond)
+			*s++
 			panic("forcing panic")
 		}
 	}

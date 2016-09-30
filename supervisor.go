@@ -220,17 +220,14 @@ func (s *Supervisor) serve(ctx context.Context) {
 func (s *Supervisor) startAllServices(ctx context.Context) {
 	s.servicesMu.Lock()
 	defer s.servicesMu.Unlock()
+	s.cancelationsMu.Lock()
+	defer s.cancelationsMu.Unlock()
 
 	var wg sync.WaitGroup
-
 	for name, svc := range s.services {
-		s.cancelationsMu.Lock()
 		if _, ok := s.cancelations[name]; ok {
-			s.cancelationsMu.Unlock()
 			continue
 		}
-		s.cancelations[name] = nil
-		s.cancelationsMu.Unlock()
 
 		wg.Add(1)
 		go func(name string, svc Service) {

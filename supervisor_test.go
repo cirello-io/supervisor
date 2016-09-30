@@ -373,9 +373,9 @@ func TestRestart(t *testing.T) {
 
 	for i := 1; i <= 3; i++ {
 		ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
-		supervisor.Serve(ctx)
+		supervisor.Serve(context.WithValue(ctx, "supervisor", i))
 		if svc1.count != i {
-			t.Errorf("wait service should have been started %d. got: %d", i, svc1.count)
+			t.Errorf("wait service should have been started %d. got: %d (%v)", i, svc1.count, svc1.supervisors)
 		}
 	}
 }

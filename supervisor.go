@@ -124,7 +124,14 @@ func (s *Supervisor) Add(service Service) {
 	name := fmt.Sprintf("%s", service)
 
 	s.mu.Lock()
-	s.backoff[name] = &backoff{}
+	s.backoff[name] = &backoff{
+		decay:     s.FailureDecay,
+		threshold: s.FailureThreshold,
+		backoff:   s.Backoff,
+		log: func(msg interface{}) {
+			s.Log(fmt.Sprintf("backoff %s: %v", name, msg))
+		},
+	}
 	s.services[name] = service
 	s.mu.Unlock()
 
@@ -268,9 +275,7 @@ func (s *Supervisor) startServices(supervisorCtx context.Context) {
 				s.mu.Lock()
 				b := s.backoff[name]
 				s.mu.Unlock()
-				b.wait(s.FailureDecay, s.FailureThreshold, s.Backoff, func(msg interface{}) {
-					s.Log(fmt.Sprintf("backoff %s: %v", name, msg))
-				})
+				b.wait()
 			}
 			s.runningServices.Done()
 		}(name, svc)
@@ -284,11 +289,16 @@ func (s *Supervisor) startServices(supervisorCtx context.Context) {
 }
 
 type backoff struct {
+	decay     float64
+	threshold float64
+	backoff   time.Duration
+	log       func(str interface{})
+
 	lastfail time.Time
 	failures float64
 }
 
-func (b *backoff) wait(failureDecay float64, threshold float64, backoffDur time.Duration, log func(str interface{})) {
+func (b *backoff) wait() {
 	if b.lastfail.IsZero() {
 		b.lastfail = time.Now()
 		b.failures = 1.0
@@ -296,11 +306,11 @@ func (b *backoff) wait(failureDecay float64, threshold float64, backoffDur time.
 	}
 
 	b.failures++
-	intervals := time.Since(b.lastfail).Seconds() / failureDecay
+	intervals := time.Since(b.lastfail).Seconds() / b.decay
 	b.failures = b.failures*math.Pow(.5, intervals) + 1
 
-	if b.failures > threshold {
-		log(backoffDur)
-		time.Sleep(backoffDur)
+	if b.failures > b.threshold {
+		b.log(b.backoff)
+		time.Sleep(b.backoff)
 	}
 }

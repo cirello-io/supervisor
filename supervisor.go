@@ -239,7 +239,7 @@ func (s *Supervisor) startServices(ctx context.Context) {
 
 					defer func() {
 						if r := recover(); r != nil {
-							s.Log(fmt.Sprint("trapped panic:", r))
+							s.Log(fmt.Sprintf("trapped panic: %v", r))
 							retry = true
 						}
 					}()

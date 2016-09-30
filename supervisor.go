@@ -190,13 +190,13 @@ func (s *Supervisor) startServices(ctx context.Context) {
 }
 
 func (s *Supervisor) serve(ctx context.Context) {
-	go func(ctx context.Context) {
-		select {
-		case <-s.addedService:
-		default:
-		}
-		s.startServices(ctx)
+	select {
+	case <-s.addedService:
+	default:
+	}
+	s.startServices(ctx)
 
+	go func(ctx context.Context) {
 		for {
 			select {
 			case <-s.addedService:
@@ -237,12 +237,6 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 			wg.Done()
 			for {
 				retry := func() (retry bool) {
-					select {
-					case <-ctx.Done():
-						return false
-					default:
-					}
-
 					defer func() {
 						if r := recover(); r != nil {
 							s.Log(fmt.Sprintf("trapped panic: %v", r))

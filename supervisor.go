@@ -46,17 +46,19 @@ type Supervisor struct {
 	Name string
 
 	// FailureDecay is the timespan on which the current failure count will
-	// be halved.
+	// be halved. Default: 30s (represented in seconds)
 	FailureDecay float64
 
 	// FailureThreshold is the maximum accepted number of failures, after
 	// decay adjustment, that shall trigger the back-off wait.
+	// Default: 5 failures
 	FailureThreshold float64
 
-	// Backoff is the wait duration when hit threshold.
+	// Backoff is the wait duration when hit threshold. Default: 15s
 	Backoff time.Duration
 
-	// Log is a replaceable function used for overall logging
+	// Log is a replaceable function used for overall logging.
+	// Default: log.Printf
 	Log func(interface{})
 
 	// indicates that supervisor is ready for use.
@@ -67,8 +69,7 @@ type Supervisor struct {
 	added chan struct{}
 
 	// signals that confirm that at least one batch of added services has
-	// been started.
-	// used mainly for tests
+	// been started. Used mainly for tests
 	started chan struct{}
 
 	// indicates that supervisor is running, or has running services.
@@ -91,18 +92,6 @@ func (s *Supervisor) prepare() {
 		if s.Name == "" {
 			s.Name = "supervisor"
 		}
-		s.added = make(chan struct{}, 1)
-		s.backoff = make(map[string]*backoff)
-		s.cancelations = make(map[string]context.CancelFunc)
-		s.services = make(map[string]Service)
-		s.started = make(chan struct{}, 1)
-		s.terminations = make(map[string]context.CancelFunc)
-
-		if s.Log == nil {
-			s.Log = func(msg interface{}) {
-				log.Printf("%s: %v", s.Name, msg)
-			}
-		}
 		if s.FailureDecay == 0 {
 			s.FailureDecay = 30
 		}
@@ -112,6 +101,18 @@ func (s *Supervisor) prepare() {
 		if s.Backoff == 0 {
 			s.Backoff = 15 * time.Second
 		}
+		if s.Log == nil {
+			s.Log = func(msg interface{}) {
+				log.Printf("%s: %v", s.Name, msg)
+			}
+		}
+
+		s.added = make(chan struct{}, 1)
+		s.backoff = make(map[string]*backoff)
+		s.cancelations = make(map[string]context.CancelFunc)
+		s.services = make(map[string]Service)
+		s.started = make(chan struct{}, 1)
+		s.terminations = make(map[string]context.CancelFunc)
 	})
 }
 

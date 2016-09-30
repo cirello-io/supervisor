@@ -2,13 +2,14 @@ package supervisor
 
 import "golang.org/x/net/context"
 
-// DefaultSupervisor is the default Supervisor used in this package.
-var DefaultSupervisor Supervisor
-var defaultContext context.Context
+var (
+	// DefaultSupervisor is the default Supervisor used in this package.
+	DefaultSupervisor Supervisor
+	defaultContext    = context.Background()
+)
 
 func init() {
 	DefaultSupervisor.Name = "default supervisor"
-	defaultContext = context.Background()
 }
 
 // Add inserts new service into the DefaultSupervisor. If the DefaultSupervisor

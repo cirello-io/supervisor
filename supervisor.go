@@ -57,7 +57,7 @@ type Supervisor struct {
 	Backoff time.Duration
 
 	// Log is a replaceable function used for overall logging
-	Log func(string)
+	Log func(interface{})
 
 	ready sync.Once
 
@@ -94,8 +94,8 @@ func (s *Supervisor) prepare() {
 		s.startedServices = make(chan struct{}, 1)
 
 		if s.Log == nil {
-			s.Log = func(str string) {
-				log.Println(s.Name, ":", str)
+			s.Log = func(msg interface{}) {
+				log.Println(s.Name, ":", msg)
 			}
 		}
 		if s.FailureDecay == 0 {
@@ -262,7 +262,9 @@ func (s *Supervisor) startServices(ctx context.Context) {
 					s.backoffMu.Lock()
 					b := s.backoff[name]
 					s.backoffMu.Unlock()
-					b.wait(s.FailureDecay, s.FailureThreshold, s.Backoff)
+					b.wait(s.FailureDecay, s.FailureThreshold, s.Backoff, func(msg interface{}) {
+						s.Log(fmt.Sprintf("backoff %s: %v", name, msg))
+					})
 					continue
 				}
 				break
@@ -280,7 +282,7 @@ type backoff struct {
 	failures float64
 }
 
-func (b *backoff) wait(failureDecay float64, threshold float64, backoffDur time.Duration) {
+func (b *backoff) wait(failureDecay float64, threshold float64, backoffDur time.Duration, log func(str interface{})) {
 	if b.lastfail.IsZero() {
 		b.lastfail = time.Now()
 		b.failures = 1.0
@@ -291,6 +293,7 @@ func (b *backoff) wait(failureDecay float64, threshold float64, backoffDur time.
 	}
 
 	if b.failures > threshold {
+		log(backoffDur)
 		time.Sleep(backoffDur)
 	}
 }

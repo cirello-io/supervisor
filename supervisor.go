@@ -95,7 +95,7 @@ func (s *Supervisor) prepare() {
 
 		if s.Log == nil {
 			s.Log = func(msg interface{}) {
-				log.Println(s.Name, ":", msg)
+				log.Printf("%s: %v", s.Name, msg)
 			}
 		}
 		if s.FailureDecay == 0 {

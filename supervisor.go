@@ -75,7 +75,7 @@ type Supervisor struct {
 	backoffMu sync.Mutex
 	backoff   map[string]*backoff
 
-	singleflight singleflight
+	runningMu sync.Mutex
 }
 
 func (s *Supervisor) String() string {
@@ -149,14 +149,14 @@ func (s *Supervisor) Remove(name string) {
 }
 
 // Serve starts the Supervisor tree. It can be started only once at a time. If
-// stopped (canceled), it can be restarted. It will discard context of
-// successive calls to supervisor when still running.
+// stopped (canceled), it can be restarted. In case of concurrent calls, it will
+// hang until the current call is completed.
 func (s *Supervisor) Serve(ctx context.Context) {
 	s.prepare()
 
-	s.singleflight.do(func() {
-		s.serve(ctx)
-	})
+	s.runningMu.Lock()
+	s.serve(ctx)
+	s.runningMu.Unlock()
 }
 
 // Services return a list of services
@@ -296,29 +296,4 @@ func (b *backoff) wait(failureDecay float64, threshold float64, backoffDur time.
 		log(backoffDur)
 		time.Sleep(backoffDur)
 	}
-}
-
-// Based from groupcache's singleflight
-type singleflight struct {
-	mu     sync.Mutex
-	flying bool
-}
-
-func (g *singleflight) do(fn func()) {
-	g.mu.Lock()
-	if g.flying {
-		g.mu.Unlock()
-		return
-	}
-
-	g.flying = true
-	g.mu.Unlock()
-
-	fn()
-
-	g.mu.Lock()
-	g.flying = false
-	g.mu.Unlock()
-
-	return
 }

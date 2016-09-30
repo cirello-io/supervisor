@@ -63,6 +63,20 @@ func TestCascaded(t *testing.T) {
 	}
 }
 
+func TestLog(t *testing.T) {
+	t.Parallel()
+
+	supervisor := Supervisor{
+		Backoff: 1 * time.Second,
+	}
+
+	svc1 := panicservice{id: 1}
+	supervisor.Add(&svc1)
+
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	supervisor.Serve(ctx)
+}
+
 func TestCascadedWithProblems(t *testing.T) {
 	t.Parallel()
 
@@ -79,6 +93,9 @@ func TestCascadedWithProblems(t *testing.T) {
 
 	childSupervisor := Supervisor{
 		Backoff: 1 * time.Second,
+		Log: func(msg string) {
+			t.Log("supervisor log (cascaded with problems - child):", msg)
+		},
 	}
 	svc3 := waitservice{id: 3}
 	childSupervisor.Add(&svc3)

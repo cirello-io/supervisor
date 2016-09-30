@@ -215,18 +215,9 @@ func (s *Supervisor) serve(ctx context.Context) {
 	s.mu.Lock()
 	s.cancelations = make(map[string]context.CancelFunc)
 	s.mu.Unlock()
-	return
 }
 
-func (s *Supervisor) startServices(ctx context.Context) {
-	s.startAllServices(ctx)
-	select {
-	case s.started <- struct{}{}:
-	default:
-	}
-}
-
-func (s *Supervisor) startAllServices(supervisorCtx context.Context) {
+func (s *Supervisor) startServices(supervisorCtx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -238,11 +229,6 @@ func (s *Supervisor) startAllServices(supervisorCtx context.Context) {
 
 		wg.Add(1)
 
-		// In the edge case that a service has been added, immediately
-		// removed, but the service itself hasn't been started. This
-		// intermediate context shall prevent a nil pointer in
-		// Supervisor.Remove(), but also stops all the subsequent
-		// service restarts. It might deserve a more elegant solution.
 		terminateCtx, terminate := context.WithCancel(supervisorCtx)
 		s.cancelations[name] = terminate
 		s.terminations[name] = terminate
@@ -265,8 +251,6 @@ func (s *Supervisor) startAllServices(supervisorCtx context.Context) {
 					s.mu.Unlock()
 					svc.Serve(ctx)
 
-					// Only stops the service, if the supervisor wants to.
-					// Otherwise, keep restarting.
 					select {
 					case <-terminateCtx.Done():
 						return false
@@ -290,8 +274,12 @@ func (s *Supervisor) startAllServices(supervisorCtx context.Context) {
 			s.runningServices.Done()
 		}(name, svc)
 	}
-
 	wg.Wait()
+
+	select {
+	case s.started <- struct{}{}:
+	default:
+	}
 }
 
 type backoff struct {

@@ -220,14 +220,16 @@ func (s *Supervisor) serve(ctx context.Context) {
 func (s *Supervisor) startAllServices(ctx context.Context) {
 	s.servicesMu.Lock()
 	defer s.servicesMu.Unlock()
-	s.cancelationsMu.Lock()
-	defer s.cancelationsMu.Unlock()
 
 	var wg sync.WaitGroup
 	for name, svc := range s.services {
+		s.cancelationsMu.Lock()
 		if _, ok := s.cancelations[name]; ok {
+			s.cancelationsMu.Unlock()
 			continue
 		}
+
+		wg.Add(1)
 
 		// In the edge case that a service has been added, immediately
 		// removed, but the service itself hasn't been started. This
@@ -236,8 +238,8 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 		// service restarts. It might deserve a more elegant solution.
 		intermediateCtx, cancel := context.WithCancel(ctx)
 		s.cancelations[name] = cancel
+		s.cancelationsMu.Unlock()
 
-		wg.Add(1)
 		go func(name string, svc Service) {
 			s.runningServices.Add(1)
 			wg.Done()

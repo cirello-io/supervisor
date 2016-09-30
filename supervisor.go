@@ -181,20 +181,26 @@ func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 	return svclist
 }
 
-func (s *Supervisor) serve(ctx context.Context) {
+func (s *Supervisor) startServices(ctx context.Context) {
+	s.startAllServices(ctx)
 	select {
-	case s.addedService <- struct{}{}:
+	case s.startedServices <- struct{}{}:
 	default:
 	}
+}
+
+func (s *Supervisor) serve(ctx context.Context) {
 	go func(ctx context.Context) {
+		select {
+		case <-s.addedService:
+		default:
+		}
+		s.startServices(ctx)
+
 		for {
 			select {
 			case <-s.addedService:
 				s.startServices(ctx)
-				select {
-				case s.startedServices <- struct{}{}:
-				default:
-				}
 
 			case <-ctx.Done():
 				return
@@ -211,7 +217,7 @@ func (s *Supervisor) serve(ctx context.Context) {
 	return
 }
 
-func (s *Supervisor) startServices(ctx context.Context) {
+func (s *Supervisor) startAllServices(ctx context.Context) {
 	s.servicesMu.Lock()
 	defer s.servicesMu.Unlock()
 

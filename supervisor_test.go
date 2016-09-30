@@ -371,11 +371,12 @@ func TestRestart(t *testing.T) {
 	var svc1 waitservice
 	supervisor.Add(&svc1)
 
-	for i := 1; i <= 3; i++ {
-		ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	for i := 1; i <= 20; i++ {
+		ctx, _ := context.WithTimeout(context.Background(), time.Millisecond)
 		supervisor.Serve(context.WithValue(ctx, "supervisor", i))
 		if svc1.count != i {
 			t.Errorf("wait service should have been started %d. got: %d (%v)", i, svc1.count, svc1.supervisors)
+			break
 		}
 	}
 }

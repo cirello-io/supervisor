@@ -229,6 +229,9 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 			continue
 		}
 
+		intermediateCtx, cancel := context.WithCancel(ctx)
+		s.cancelations[name] = cancel
+
 		wg.Add(1)
 		go func(name string, svc Service) {
 			s.runningServices.Add(1)
@@ -242,7 +245,7 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 						}
 					}()
 
-					c, cancel := context.WithCancel(ctx)
+					c, cancel := context.WithCancel(intermediateCtx)
 					s.cancelationsMu.Lock()
 					s.cancelations[name] = cancel
 					s.cancelationsMu.Unlock()

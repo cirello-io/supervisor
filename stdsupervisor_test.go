@@ -8,6 +8,20 @@ import (
 	"golang.org/x/net/context"
 )
 
+func ExampleServeContext() {
+	svc := Simpleservice(1)
+	Add(&svc)
+
+	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ServeContext(ctx)
+}
+
+func ExampleServe() {
+	svc := Simpleservice(1)
+	Add(&svc)
+	Serve()
+}
+
 func TestDefaultSupevisor(t *testing.T) {
 	t.Parallel()
 

@@ -230,6 +230,8 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 			s.cancelationsMu.Unlock()
 			continue
 		}
+		s.cancelations[name] = nil
+		s.cancelationsMu.Unlock()
 
 		wg.Add(1)
 		go func(name string, svc Service) {
@@ -271,7 +273,7 @@ func (s *Supervisor) startAllServices(ctx context.Context) {
 			}
 			s.runningServices.Done()
 		}(name, svc)
-		s.cancelationsMu.Unlock()
+
 	}
 
 	wg.Wait()

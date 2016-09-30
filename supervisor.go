@@ -59,18 +59,26 @@ type Supervisor struct {
 	// Log is a replaceable function used for overall logging
 	Log func(interface{})
 
-	ready sync.Once
+	// indicates that supervisor is ready for use.
+	prepared sync.Once
 
-	added   chan struct{}
+	// signals that a new service has just been added, so the started
+	// supervisor picks it up.
+	added chan struct{}
+
+	// signals that confirm that at least one batch of added services has
+	// been started.
+	// used mainly for tests
 	started chan struct{}
 
+	// indicates that supervisor is running, or has running services.
 	running         sync.Mutex
 	runningServices sync.WaitGroup
 
 	mu           sync.Mutex
-	services     map[string]Service
-	cancelations map[string]context.CancelFunc
-	backoff      map[string]*backoff
+	services     map[string]Service            // added services
+	cancelations map[string]context.CancelFunc // each service cancelation
+	backoff      map[string]*backoff           // backoff calculator for failures
 }
 
 func (s *Supervisor) String() string {
@@ -78,7 +86,7 @@ func (s *Supervisor) String() string {
 }
 
 func (s *Supervisor) prepare() {
-	s.ready.Do(func() {
+	s.prepared.Do(func() {
 		if s.Name == "" {
 			s.Name = "supervisor"
 		}

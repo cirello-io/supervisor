@@ -133,3 +133,10 @@ type waitservice struct {
 	mu    sync.Mutex
 	count int
 }
+
+type holdingservice struct {
+	id    int
+	mu    sync.Mutex
+	count int
+	sync.WaitGroup
+}

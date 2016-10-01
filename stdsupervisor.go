@@ -25,3 +25,10 @@ func Services() map[string]Service {
 func Serve() {
 	ServeContext(defaultContext)
 }
+
+// ServeGroup starts the DefaultSupervisor tree within a Group. It can be
+// started only once at a time. If stopped (canceled), it can be restarted.
+// In case of concurrent calls, it will hang until the current call is completed.
+func ServeGroup() {
+	ServeGroupContext(defaultContext)
+}

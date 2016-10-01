@@ -29,3 +29,13 @@ func Cancelations() map[string]context.CancelFunc {
 func ServeContext(ctx context.Context) {
 	DefaultSupervisor.Serve(ctx)
 }
+
+// ServeGroupContext starts the DefaultSupervisor tree with a custom
+// context.Context. It can be started only once at a time. If stopped
+// (canceled), it can be restarted. In case of concurrent calls, it will hang
+// until the current call is completed.
+func ServeGroupContext(ctx context.Context) {
+	var group Group
+	group.Supervisor = &DefaultSupervisor
+	group.Serve(ctx)
+}

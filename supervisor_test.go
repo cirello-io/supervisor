@@ -7,16 +7,6 @@ import (
 	"time"
 )
 
-func ExampleSupervisor() {
-	var supervisor Supervisor
-
-	svc := Simpleservice(1)
-	supervisor.Add(&svc)
-
-	ctx, _ := contextWithTimeout(1 * time.Second)
-	supervisor.Serve(ctx)
-}
-
 func TestString(t *testing.T) {
 	t.Parallel()
 
@@ -356,27 +346,21 @@ func TestRestart(t *testing.T) {
 	}
 }
 
-
 func (s *failingservice) String() string {
 	return fmt.Sprintf("failing service %v", s.id)
 }
-
 
 func (s *panicservice) String() string {
 	return fmt.Sprintf("panic service %v", s.id)
 }
 
-
 func (s *restartableservice) String() string {
 	return fmt.Sprintf("restartable service %v", *s)
 }
 
-
-
 func (s *Simpleservice) String() string {
 	return fmt.Sprintf("simple service %d", int(*s))
 }
-
 
 func (s *waitservice) String() string {
 	return fmt.Sprintf("wait service %v", s.id)

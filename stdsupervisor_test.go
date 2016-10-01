@@ -4,17 +4,7 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 )
-
-func ExampleServeContext() {
-	svc := Simpleservice(1)
-	Add(&svc)
-
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
-	ServeContext(ctx)
-}
 
 func ExampleServe() {
 	svc := Simpleservice(1)
@@ -25,8 +15,8 @@ func ExampleServe() {
 func TestDefaultSupevisor(t *testing.T) {
 	t.Parallel()
 
-	var cancel context.CancelFunc
-	defaultContext, cancel = context.WithTimeout(defaultContext, 10*time.Second)
+	ctx, cancel := contextWithTimeout(10 * time.Second)
+	defaultContext = ctx
 	svc := waitservice{id: 1}
 
 	Add(&svc)

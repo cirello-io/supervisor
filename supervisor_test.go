@@ -390,24 +390,16 @@ func TestGroup(t *testing.T) {
 	wg.Wait()
 }
 
-func TestPristineGroupServe(t *testing.T) {
-	t.Parallel()
-
-	var supervisor Group
-	ctx, cancel := contextWithTimeout(3 * time.Second)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		supervisor.Serve(ctx)
-
-		if supervisor.Supervisor == nil {
-			t.Errorf("internal supervisor should not be nil after first Serve.")
+func TestInvalidGroup(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("defer called, but not because of panic")
 		}
-		wg.Done()
 	}()
-
-	cancel()
-	wg.Wait()
+	var group Group
+	ctx, _ := contextWithTimeout(10 * time.Second)
+	group.Serve(ctx)
+	t.Error("this group is invalid and should have had panic()'d")
 }
 
 func (s *failingservice) String() string {

@@ -228,15 +228,15 @@ func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func(
 // remind to do it as reference (&supervisor).
 type Group struct {
 	*Supervisor
-
-	prepared sync.Once
 }
 
 // Serve starts the Group tree. It can be started only once at a time. If
 // stopped (canceled), it can be restarted. In case of concurrent calls, it will
 // hang until the current call is completed.
 func (g *Group) Serve(ctx context.Context) {
-	g.prepare()
+	if g.Supervisor == nil {
+		panic("Supervisor missing for this Group.")
+	}
 	g.Supervisor.prepare()
 	serve(g.Supervisor, ctx, func() {
 		g.mu.Lock()
@@ -244,14 +244,6 @@ func (g *Group) Serve(ctx context.Context) {
 			c()
 		}
 		g.mu.Unlock()
-	})
-}
-
-func (g *Group) prepare() {
-	g.prepared.Do(func() {
-		if g.Supervisor == nil {
-			g.Supervisor = &Supervisor{}
-		}
 	})
 }
 

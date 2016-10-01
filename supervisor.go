@@ -58,6 +58,10 @@ func (s *Supervisor) Remove(name string) {
 	if _, ok := s.cancelations[name]; ok {
 		delete(s.cancelations, name)
 	}
+
+	if _, ok := s.backoff[name]; ok {
+		delete(s.cancelations, name)
+	}
 }
 
 // Services return a list of services
@@ -69,6 +73,17 @@ func (s *Supervisor) Services() map[string]Service {
 	}
 	s.mu.Unlock()
 	return svclist
+}
+
+func (s *Supervisor) cleanchan() {
+	select {
+	case <-s.added:
+	default:
+	}
+	select {
+	case <-s.started:
+	default:
+	}
 }
 
 type backoff struct {

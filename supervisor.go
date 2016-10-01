@@ -3,7 +3,6 @@ package supervisor
 import (
 	"fmt"
 	"math"
-	"sync"
 	"time"
 )
 
@@ -107,30 +106,4 @@ func (b *backoff) wait() {
 		b.log(b.backoff)
 		time.Sleep(b.backoff)
 	}
-}
-
-type failingservice struct {
-	id, count int
-}
-
-type panicservice struct {
-	id, count int
-}
-
-type restartableservice struct {
-	id        int
-	restarted chan struct{}
-}
-
-type waitservice struct {
-	id    int
-	mu    sync.Mutex
-	count int
-}
-
-type holdingservice struct {
-	id    int
-	mu    sync.Mutex
-	count int
-	sync.WaitGroup
 }

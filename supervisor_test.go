@@ -5,8 +5,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"context"
 )
 
 func ExampleSupervisor() {
@@ -15,7 +13,7 @@ func ExampleSupervisor() {
 	svc := Simpleservice(1)
 	supervisor.Add(&svc)
 
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, _ := contextWithTimeout(1 * time.Second)
 	supervisor.Serve(ctx)
 }
 
@@ -47,7 +45,7 @@ func TestCascaded(t *testing.T) {
 	childSupervisor.Add(&svc4)
 	supervisor.Add(&childSupervisor)
 
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, _ := contextWithTimeout(1 * time.Second)
 	supervisor.Serve(ctx)
 
 	if count := getServiceCount(&supervisor); count != 3 {
@@ -70,7 +68,7 @@ func TestLog(t *testing.T) {
 	svc1 := panicservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, _ := contextWithTimeout(1 * time.Second)
 	supervisor.Serve(ctx)
 }
 
@@ -101,7 +99,7 @@ func TestCascadedWithProblems(t *testing.T) {
 
 	supervisor.Add(&childSupervisor)
 
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, _ := contextWithTimeout(5 * time.Second)
 	supervisor.Serve(ctx)
 
 	if count := getServiceCount(&supervisor); count != 3 {
@@ -130,7 +128,7 @@ func TestPanic(t *testing.T) {
 	svc1 := panicservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, _ := contextWithTimeout(1 * time.Second)
 	supervisor.Serve(ctx)
 
 	// should arrive here with no panic
@@ -151,7 +149,7 @@ func TestFailing(t *testing.T) {
 	svc1 := failingservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, _ := contextWithTimeout(3 * time.Second)
 	supervisor.Serve(ctx)
 
 	// should arrive here with no panic
@@ -167,7 +165,7 @@ func TestAddServiceAfterServe(t *testing.T) {
 	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := contextWithTimeout(2 * time.Second)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -198,7 +196,7 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 	svc2 := Simpleservice(2)
 	supervisor.Add(&svc2)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := contextWithTimeout(10 * time.Second)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -234,7 +232,7 @@ func TestRemoveServiceAfterServeBug(t *testing.T) {
 	svc1 := waitservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, _ := contextWithTimeout(2 * time.Second)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -261,7 +259,7 @@ func TestServices(t *testing.T) {
 	svc2 := Simpleservice(2)
 	supervisor.Add(&svc2)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := contextWithTimeout(10 * time.Second)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -294,7 +292,7 @@ func TestManualCancelation(t *testing.T) {
 	svc2 := restartableservice{2, make(chan struct{})}
 	supervisor.Add(&svc2)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := contextWithTimeout(10 * time.Second)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -323,7 +321,7 @@ func TestServiceList(t *testing.T) {
 	svc1 := Simpleservice(1)
 	supervisor.Add(&svc1)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := contextWithTimeout(10 * time.Second)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -349,10 +347,10 @@ func TestRestart(t *testing.T) {
 	supervisor.Add(&svc1)
 
 	for i := 1; i <= 20; i++ {
-		ctx, _ := context.WithTimeout(context.Background(), time.Millisecond)
-		supervisor.Serve(context.WithValue(ctx, "supervisor", i))
+		ctx, _ := contextWithTimeout(time.Millisecond)
+		supervisor.Serve(ctx)
 		if svc1.count != i {
-			t.Errorf("wait service should have been started %d. got: %d (%v)", i, svc1.count, svc1.supervisors)
+			t.Errorf("wait service should have been started %d. got: %d", i, svc1.count)
 			break
 		}
 	}
@@ -360,17 +358,6 @@ func TestRestart(t *testing.T) {
 
 type failingservice struct {
 	id, count int
-}
-
-func (s *failingservice) Serve(ctx context.Context) {
-	select {
-	case <-ctx.Done():
-		return
-	default:
-		time.Sleep(100 * time.Millisecond)
-		s.count++
-		return
-	}
 }
 
 func (s *failingservice) String() string {
@@ -381,19 +368,6 @@ type panicservice struct {
 	id, count int
 }
 
-func (s *panicservice) Serve(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			time.Sleep(100 * time.Millisecond)
-			s.count++
-			panic("forcing panic")
-		}
-	}
-}
-
 func (s *panicservice) String() string {
 	return fmt.Sprintf("panic service %v", s.id)
 }
@@ -401,23 +375,6 @@ func (s *panicservice) String() string {
 type restartableservice struct {
 	id        int
 	restarted chan struct{}
-}
-
-func (s *restartableservice) Serve(ctx context.Context) {
-	var i int
-	for {
-		i++
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			time.Sleep(500 * time.Millisecond)
-			select {
-			case s.restarted <- struct{}{}:
-			default:
-			}
-		}
-	}
 }
 
 func (s *restartableservice) String() string {
@@ -430,33 +387,10 @@ func (s *Simpleservice) String() string {
 	return fmt.Sprintf("simple service %d", int(*s))
 }
 
-func (s *Simpleservice) Serve(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			time.Sleep(500 * time.Millisecond)
-		}
-	}
-}
-
 type waitservice struct {
-	id          int
-	mu          sync.Mutex
-	count       int
-	supervisors []int
-}
-
-func (s *waitservice) Serve(ctx context.Context) {
-	s.mu.Lock()
-	s.count++
-	id := ctx.Value("supervisor")
-	if id != nil {
-		s.supervisors = append(s.supervisors, id.(int))
-	}
-	s.mu.Unlock()
-	<-ctx.Done()
+	id    int
+	mu    sync.Mutex
+	count int
 }
 
 func (s *waitservice) String() string {

@@ -7,7 +7,7 @@ import (
 )
 
 func ExampleServe() {
-	svc := Simpleservice(1)
+	svc := simpleservice(1)
 	Add(&svc)
 	Serve()
 }

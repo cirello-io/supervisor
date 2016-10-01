@@ -10,9 +10,13 @@ import (
 func ExampleSupervisor() {
 	var supervisor Supervisor
 
-	svc := Simpleservice(1)
+	svc := simpleservice(1)
 	supervisor.Add(&svc)
 
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	supervisor.Serve(ctx)
+
+	// If Serve() runs on background, this supervisor can be halted through
+	// cancel().
+	cancel()
 }

@@ -9,7 +9,7 @@ import (
 )
 
 func ExampleServeContext() {
-	svc := Simpleservice(1)
+	svc := simpleservice(1)
 	Add(&svc)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)

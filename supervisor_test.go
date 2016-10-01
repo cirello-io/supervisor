@@ -152,7 +152,7 @@ func TestAddServiceAfterServe(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
-	svc1 := Simpleservice(1)
+	svc1 := simpleservice(1)
 	supervisor.Add(&svc1)
 
 	ctx, cancel := contextWithTimeout(2 * time.Second)
@@ -164,7 +164,7 @@ func TestAddServiceAfterServe(t *testing.T) {
 	}()
 	<-supervisor.started
 
-	svc2 := Simpleservice(2)
+	svc2 := simpleservice(2)
 	supervisor.Add(&svc2)
 	<-supervisor.started
 
@@ -181,9 +181,9 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
-	svc1 := Simpleservice(1)
+	svc1 := simpleservice(1)
 	supervisor.Add(&svc1)
-	svc2 := Simpleservice(2)
+	svc2 := simpleservice(2)
 	supervisor.Add(&svc2)
 
 	ctx, cancel := contextWithTimeout(10 * time.Second)
@@ -244,9 +244,9 @@ func TestServices(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
-	svc1 := Simpleservice(1)
+	svc1 := simpleservice(1)
 	supervisor.Add(&svc1)
-	svc2 := Simpleservice(2)
+	svc2 := simpleservice(2)
 	supervisor.Add(&svc2)
 
 	ctx, cancel := contextWithTimeout(10 * time.Second)
@@ -277,7 +277,7 @@ func TestManualCancelation(t *testing.T) {
 			t.Log("supervisor log (restartable):", msg)
 		},
 	}
-	svc1 := Simpleservice(1)
+	svc1 := simpleservice(1)
 	supervisor.Add(&svc1)
 	svc2 := restartableservice{2, make(chan struct{})}
 	supervisor.Add(&svc2)
@@ -308,7 +308,7 @@ func TestServiceList(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
-	svc1 := Simpleservice(1)
+	svc1 := simpleservice(1)
 	supervisor.Add(&svc1)
 
 	ctx, cancel := contextWithTimeout(10 * time.Second)
@@ -320,7 +320,7 @@ func TestServiceList(t *testing.T) {
 	<-supervisor.started
 
 	svcs := supervisor.Services()
-	if svc, ok := svcs[svc1.String()]; !ok || &svc1 != svc.(*Simpleservice) {
+	if svc, ok := svcs[svc1.String()]; !ok || &svc1 != svc.(*simpleservice) {
 		t.Errorf("could not find service when listing them. %s missing", svc1.String())
 	}
 
@@ -358,7 +358,7 @@ func (s *restartableservice) String() string {
 	return fmt.Sprintf("restartable service %v", *s)
 }
 
-func (s *Simpleservice) String() string {
+func (s *simpleservice) String() string {
 	return fmt.Sprintf("simple service %d", int(*s))
 }
 

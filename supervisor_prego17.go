@@ -261,7 +261,7 @@ func (s *restartableservice) Serve(ctx context.Context) {
 	}
 }
 
-func (s *Simpleservice) Serve(ctx context.Context) {
+func (s *simpleservice) Serve(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():

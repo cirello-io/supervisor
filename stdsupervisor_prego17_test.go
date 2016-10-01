@@ -1,21 +1,35 @@
 // +build !go1.7
 
-package supervisor
+package supervisor_test
 
 import (
+	"fmt"
 	"time"
 
+	"cirello.io/supervisor"
 	"golang.org/x/net/context"
 )
 
+type Simpleservice int
+
+func (s *Simpleservice) Serve(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+}
+
+func (s *Simpleservice) String() string {
+	return fmt.Sprintf("simple service %d", int(*s))
+}
+
 func ExampleServeContext() {
-	svc := simpleservice(1)
-	Add(&svc)
+	svc := Simpleservice(1)
+	supervisor.Add(&svc)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	ServeContext(ctx)
-
-	// If ServeContext() runs on background, this supervisor can be halted
-	// through cancel().
-	cancel()
+	supervisor.ServeContext(context.Background())
 }

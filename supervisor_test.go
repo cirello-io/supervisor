@@ -399,26 +399,6 @@ func TestInvalidGroup(t *testing.T) {
 	t.Error("this group is invalid and should have had panic()'d")
 }
 
-func (s *failingservice) String() string {
-	return fmt.Sprintf("failing service %v", s.id)
-}
-
-func (s *panicservice) String() string {
-	return fmt.Sprintf("panic service %v", s.id)
-}
-
-func (s *restartableservice) String() string {
-	return fmt.Sprintf("restartable service %v", *s)
-}
-
-func (s *waitservice) String() string {
-	return fmt.Sprintf("wait service %v", s.id)
-}
-
-func (s *holdingservice) String() string {
-	return fmt.Sprintf("holding service %v", s.id)
-}
-
 func getServiceCount(s *Supervisor) int {
 	s.mu.Lock()
 	l := len(s.services)

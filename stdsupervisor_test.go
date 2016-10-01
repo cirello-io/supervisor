@@ -25,9 +25,10 @@ func TestDefaultSupevisor(t *testing.T) {
 
 	ctx, cancel := contextWithTimeout(10 * time.Second)
 	defaultContext = ctx
-	svc := waitservice{id: 1}
+	svc := &holdingservice{id: 1}
+	svc.Add(1)
 
-	Add(&svc)
+	Add(svc)
 	if len(DefaultSupervisor.services) != 1 {
 		t.Errorf("%s should have been added", svc.String())
 	}
@@ -37,7 +38,7 @@ func TestDefaultSupevisor(t *testing.T) {
 		t.Errorf("%s should have been removed. services: %#v", svc.String(), DefaultSupervisor.services)
 	}
 
-	Add(&svc)
+	Add(svc)
 
 	svcs := Services()
 	if _, ok := svcs[svc.String()]; !ok {
@@ -52,6 +53,7 @@ func TestDefaultSupevisor(t *testing.T) {
 	}()
 	<-DefaultSupervisor.started
 
+	svc.Wait()
 	cs := Cancelations()
 	if _, ok := cs[svc.String()]; !ok {
 		t.Errorf("%s's cancelation should have been found", svc.String())

@@ -2,10 +2,7 @@
 
 package supervisor
 
-import (
-	"context"
-	"time"
-)
+import "context"
 
 var (
 	defaultContext = context.Background()

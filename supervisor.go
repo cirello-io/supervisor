@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+type retryAfterFail func() bool
+
 func (s *Supervisor) String() string {
 	return s.Name
 }

@@ -372,6 +372,7 @@ func TestGroup(t *testing.T) {
 	svc1 := holdingservice{id: 1}
 	svc1.Add(1)
 	supervisor.Add(&svc1)
+
 	svc2 := holdingservice{id: 2}
 	svc2.Add(1)
 	supervisor.Add(&svc2)

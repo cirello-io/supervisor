@@ -171,10 +171,16 @@ func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func(
 			wg.Done()
 			for {
 				retry := func() (retry bool) {
+					select {
+					case <-terminateCtx.Done():
+						return false
+					case <-supervisorCtx.Done():
+						return false
+					default:
+					}
 					defer func() {
 						if r := recover(); r != nil {
 							s.Log(fmt.Sprintf("trapped panic (%s): %v", name, r))
-
 							select {
 							case <-terminateCtx.Done():
 								retry = false
@@ -239,8 +245,13 @@ func (g *Group) Serve(ctx context.Context) {
 	g.Supervisor.prepare()
 	serve(g.Supervisor, ctx, func() {
 		g.mu.Lock()
-		for _, c := range g.cancelations {
+		for _, c := range g.terminations {
 			c()
+		}
+		g.cancelations = make(map[string]context.CancelFunc)
+		select {
+		case g.added <- struct{}{}:
+		default:
 		}
 		g.mu.Unlock()
 	})
@@ -248,60 +259,4 @@ func (g *Group) Serve(ctx context.Context) {
 
 func contextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), timeout)
-}
-
-func (s *failingservice) Serve(ctx context.Context) {
-	select {
-	case <-ctx.Done():
-		return
-	default:
-		time.Sleep(100 * time.Millisecond)
-		s.count++
-		return
-	}
-}
-
-func (s *panicservice) Serve(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			time.Sleep(100 * time.Millisecond)
-			s.count++
-			panic("forcing panic")
-		}
-	}
-}
-
-func (s *restartableservice) Serve(ctx context.Context) {
-	var i int
-	for {
-		i++
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			time.Sleep(500 * time.Millisecond)
-			select {
-			case s.restarted <- struct{}{}:
-			default:
-			}
-		}
-	}
-}
-
-func (s *waitservice) Serve(ctx context.Context) {
-	s.mu.Lock()
-	s.count++
-	s.mu.Unlock()
-	<-ctx.Done()
-}
-
-func (s *holdingservice) Serve(ctx context.Context) {
-	s.mu.Lock()
-	s.count++
-	s.mu.Unlock()
-	s.Done()
-	<-ctx.Done()
 }

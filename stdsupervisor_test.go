@@ -53,9 +53,10 @@ func TestDefaultSupevisor(t *testing.T) {
 	}()
 
 	svc.Wait()
+
 	cs := Cancelations()
 	if _, ok := cs[svc.String()]; !ok {
-		t.Errorf("%s's cancelation should have been found", svc.String())
+		t.Errorf("%s's cancelation should have been found. %#v", svc.String(), cs)
 	}
 
 	cancel()

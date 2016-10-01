@@ -42,7 +42,7 @@ func ExampleSupervisor() {
 }
 
 func ExampleGroup() {
-	var supervisor Group
+	supervisor := Group{&Supervisor{}}
 
 	svc1 := simpleservice(1)
 	supervisor.Add(&svc1)

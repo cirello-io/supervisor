@@ -54,3 +54,59 @@ func ExampleGroup() {
 	// cancel().
 	cancel()
 }
+
+func (s *failingservice) Serve(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		time.Sleep(100 * time.Millisecond)
+		s.count++
+		return
+	}
+}
+
+func (s *panicservice) Serve(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			time.Sleep(100 * time.Millisecond)
+			s.count++
+			panic("forcing panic")
+		}
+	}
+}
+
+func (s *restartableservice) Serve(ctx context.Context) {
+	var i int
+	for {
+		i++
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			time.Sleep(500 * time.Millisecond)
+			select {
+			case s.restarted <- struct{}{}:
+			default:
+			}
+		}
+	}
+}
+
+func (s *waitservice) Serve(ctx context.Context) {
+	s.mu.Lock()
+	s.count++
+	s.mu.Unlock()
+	<-ctx.Done()
+}
+
+func (s *holdingservice) Serve(ctx context.Context) {
+	s.mu.Lock()
+	s.count++
+	s.mu.Unlock()
+	s.Done()
+	<-ctx.Done()
+}

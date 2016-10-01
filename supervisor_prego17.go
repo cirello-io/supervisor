@@ -122,10 +122,6 @@ func (s *Supervisor) Serve(ctx context.Context) {
 	s.running.Unlock()
 }
 
-func contextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), timeout)
-}
-
 func (s *Supervisor) serve(ctx context.Context) {
 	select {
 	case <-s.added:

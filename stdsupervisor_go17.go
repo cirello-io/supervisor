@@ -5,8 +5,19 @@ package supervisor
 import "context"
 
 var (
-	defaultContext = context.Background()
+	defaultContext context.Context
+
+	// Cancel signal for the internal context
+	Cancel context.CancelFunc
 )
+
+func init() {
+	resetDefaultContext()
+}
+
+func resetDefaultContext() {
+	defaultContext, Cancel = context.WithCancel(context.Background())
+}
 
 // Add inserts new service into the DefaultSupervisor. If the DefaultSupervisor
 // is already started, it will start it automatically. If the same service is
@@ -25,17 +36,20 @@ func Cancelations() map[string]context.CancelFunc {
 // ServeContext starts the DefaultSupervisor tree with a custom context.Context.
 // It can be started only once at a time. If stopped (canceled), it can be
 // restarted. In case of concurrent calls, it will hang until the current call
-// is completed.
+// is completed. After its conclusion, its internal state is reset.
 func ServeContext(ctx context.Context) {
 	DefaultSupervisor.Serve(ctx)
+	DefaultSupervisor.reset()
 }
 
 // ServeGroupContext starts the DefaultSupervisor tree with a custom
 // context.Context. It can be started only once at a time. If stopped
 // (canceled), it can be restarted. In case of concurrent calls, it will hang
-// until the current call is completed.
+// until the current call is completed.  After its conclusion, its internal
+// state is reset.
 func ServeGroupContext(ctx context.Context) {
 	var group Group
 	group.Supervisor = &DefaultSupervisor
 	group.Serve(ctx)
+	DefaultSupervisor.reset()
 }

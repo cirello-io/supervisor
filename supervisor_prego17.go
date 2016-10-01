@@ -151,6 +151,8 @@ func (s *Supervisor) serve(ctx context.Context) {
 	s.mu.Lock()
 	s.cancelations = make(map[string]context.CancelFunc)
 	s.mu.Unlock()
+
+	s.cleanchan()
 }
 
 func (s *Supervisor) startServices(supervisorCtx context.Context) {

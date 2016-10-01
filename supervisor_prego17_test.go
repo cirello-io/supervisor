@@ -11,7 +11,7 @@ import (
 func ExampleSupervisor() {
 	var supervisor Supervisor
 
-	svc := Simpleservice(1)
+	svc := simpleservice(1)
 	supervisor.Add(&svc)
 
 	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)

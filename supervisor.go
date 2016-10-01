@@ -111,7 +111,7 @@ type restartableservice struct {
 	restarted chan struct{}
 }
 
-type Simpleservice int
+type simpleservice int
 
 type waitservice struct {
 	id    int

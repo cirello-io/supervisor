@@ -346,6 +346,70 @@ func TestRestart(t *testing.T) {
 	}
 }
 
+func TestGroup(t *testing.T) {
+	t.Parallel()
+
+	supervisor := Group{
+		Supervisor: &Supervisor{
+			Log: func(msg interface{}) {
+				t.Log("group log:", msg)
+			},
+		},
+	}
+	svc1 := holdingservice{id: 1}
+	svc1.Add(1)
+	supervisor.Add(&svc1)
+	svc2 := holdingservice{id: 2}
+	svc2.Add(1)
+	supervisor.Add(&svc2)
+
+	ctx, cancel := contextWithTimeout(3 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		// should arrive here with no panic
+		if !(svc1.count == svc2.count && svc1.count == 2) {
+			t.Errorf("affected service of a group should affect all. svc1.count: %d svc2.count: %d (both should be 2)", svc1.count, svc2.count)
+		}
+		wg.Done()
+	}()
+	svc1.Wait()
+	svc2.Wait()
+
+	svc1.Add(1)
+	svc2.Add(1)
+
+	cs := supervisor.Cancelations()
+	cs[svc1.String()]()
+
+	svc1.Wait()
+	svc2.Wait()
+
+	cancel()
+	wg.Wait()
+}
+
+func TestPristineGroupServe(t *testing.T) {
+	t.Parallel()
+
+	var supervisor Group
+	ctx, cancel := contextWithTimeout(3 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+
+		if supervisor.Supervisor == nil {
+			t.Errorf("internal supervisor should not be nil after first Serve.")
+		}
+		wg.Done()
+	}()
+
+	cancel()
+	wg.Wait()
+}
+
 func (s *failingservice) String() string {
 	return fmt.Sprintf("failing service %v", s.id)
 }
@@ -364,6 +428,10 @@ func (s *simpleservice) String() string {
 
 func (s *waitservice) String() string {
 	return fmt.Sprintf("wait service %v", s.id)
+}
+
+func (s *holdingservice) String() string {
+	return fmt.Sprintf("holding service %v", s.id)
 }
 
 func getServiceCount(s *Supervisor) int {

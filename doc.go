@@ -10,8 +10,13 @@ supervisor can have its own set of configurations. Any instance of
 supervisor.Service can be added to a tree.
 
 	Supervisor
-	     ├─▶ Supervisor
+	     ├─▶ Supervisor (if one service dies, only one is restarted)
+	     │       ├─▶ Service
 	     │       └─▶ Service
+	     ├─▶ Group (if one service dies, all others are restarted too)
+	     │       └─▶ Service
+	     │           Service
+	     │           Service
 	     └─▶ Service
 
 Example:

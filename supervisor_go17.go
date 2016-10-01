@@ -116,18 +116,18 @@ func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 // hang until the current call is completed.
 func (s *Supervisor) Serve(ctx context.Context) {
 	s.prepare()
-
-	s.running.Lock()
-	s.serve(ctx)
-	s.running.Unlock()
+	serve(s, ctx, func() {})
 }
 
-func (s *Supervisor) serve(ctx context.Context) {
+func serve(s *Supervisor, ctx context.Context, afterFail func()) {
+	s.running.Lock()
+	defer s.running.Unlock()
+
 	select {
 	case <-s.added:
 	default:
 	}
-	s.startServices(ctx)
+	startServices(s, ctx, afterFail)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -135,7 +135,7 @@ func (s *Supervisor) serve(ctx context.Context) {
 		for {
 			select {
 			case <-s.added:
-				s.startServices(ctx)
+				startServices(s, ctx, afterFail)
 
 			case <-ctx.Done():
 				wg.Done()
@@ -155,7 +155,7 @@ func (s *Supervisor) serve(ctx context.Context) {
 	s.cleanchan()
 }
 
-func (s *Supervisor) startServices(supervisorCtx context.Context) {
+func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -195,6 +195,7 @@ func (s *Supervisor) startServices(supervisorCtx context.Context) {
 					case <-supervisorCtx.Done():
 						return false
 					default:
+						afterFail()
 						return true
 					}
 				}()
@@ -216,6 +217,42 @@ func (s *Supervisor) startServices(supervisorCtx context.Context) {
 	case s.started <- struct{}{}:
 	default:
 	}
+}
+
+// Group is a superset of Supervisor datastructure responsible for offering a
+// supervisor tree whose all services are restarted whenever one of them fail or
+// is restarted. It assumes that all services rely on each other. It does not
+// guarantee any start other, but it does guarantee all services will be
+// restarted. It implements Service, therefore it can be nested if necessary
+// either with other Group or Supervisor. When passing the Group around,
+// remind to do it as reference (&supervisor).
+type Group struct {
+	*Supervisor
+
+	prepared sync.Once
+}
+
+// Serve starts the Group tree. It can be started only once at a time. If
+// stopped (canceled), it can be restarted. In case of concurrent calls, it will
+// hang until the current call is completed.
+func (g *Group) Serve(ctx context.Context) {
+	g.prepare()
+	g.Supervisor.prepare()
+	serve(g.Supervisor, ctx, func() {
+		g.mu.Lock()
+		for _, c := range g.cancelations {
+			c()
+		}
+		g.mu.Unlock()
+	})
+}
+
+func (g *Group) prepare() {
+	g.prepared.Do(func() {
+		if g.Supervisor == nil {
+			g.Supervisor = &Supervisor{}
+		}
+	})
 }
 
 func contextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
@@ -278,5 +315,13 @@ func (s *waitservice) Serve(ctx context.Context) {
 	s.mu.Lock()
 	s.count++
 	s.mu.Unlock()
+	<-ctx.Done()
+}
+
+func (s *holdingservice) Serve(ctx context.Context) {
+	s.mu.Lock()
+	s.count++
+	s.mu.Unlock()
+	s.Done()
 	<-ctx.Done()
 }

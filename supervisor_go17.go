@@ -55,10 +55,6 @@ type Supervisor struct {
 	// supervisor picks it up.
 	added chan struct{}
 
-	// signals that confirm that at least one batch of added services has
-	// been started. Used mainly for tests.
-	started chan struct{}
-
 	// indicates that supervisor is running, or has running services.
 	running         sync.Mutex
 	runningServices sync.WaitGroup
@@ -94,7 +90,6 @@ func (s *Supervisor) prepare() {
 		s.backoff = make(map[string]*backoff)
 		s.cancelations = make(map[string]context.CancelFunc)
 		s.services = make(map[string]Service)
-		s.started = make(chan struct{}, 1)
 		s.terminations = make(map[string]context.CancelFunc)
 	})
 }
@@ -178,8 +173,17 @@ func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func(
 				retry := func() (retry bool) {
 					defer func() {
 						if r := recover(); r != nil {
-							s.Log(fmt.Sprintf("trapped panic: %v", r))
-							retry = true
+							s.Log(fmt.Sprintf("trapped panic (%s): %v", name, r))
+
+							select {
+							case <-terminateCtx.Done():
+								retry = false
+							case <-supervisorCtx.Done():
+								retry = false
+							default:
+								afterFail()
+								retry = true
+							}
 						}
 					}()
 
@@ -212,11 +216,6 @@ func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func(
 		}(name, svc)
 	}
 	wg.Wait()
-
-	select {
-	case s.started <- struct{}{}:
-	default:
-	}
 }
 
 // Group is a superset of Supervisor datastructure responsible for offering a
@@ -288,17 +287,6 @@ func (s *restartableservice) Serve(ctx context.Context) {
 			case s.restarted <- struct{}{}:
 			default:
 			}
-		}
-	}
-}
-
-func (s *simpleservice) Serve(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			time.Sleep(500 * time.Millisecond)
 		}
 	}
 }

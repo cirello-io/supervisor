@@ -4,8 +4,26 @@ package supervisor
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
+
+type simpleservice int
+
+func (s *simpleservice) Serve(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+}
+
+func (s *simpleservice) String() string {
+	return fmt.Sprintf("simple service %d", int(*s))
+}
 
 func ExampleSupervisor() {
 	var supervisor Supervisor

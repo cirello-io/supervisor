@@ -67,31 +67,33 @@ type Supervisor struct {
 }
 
 func (s *Supervisor) prepare() {
-	s.prepared.Do(func() {
-		if s.Name == "" {
-			s.Name = "supervisor"
-		}
-		if s.FailureDecay == 0 {
-			s.FailureDecay = 30
-		}
-		if s.FailureThreshold == 0 {
-			s.FailureThreshold = 5
-		}
-		if s.Backoff == 0 {
-			s.Backoff = 15 * time.Second
-		}
-		if s.Log == nil {
-			s.Log = func(msg interface{}) {
-				log.Printf("%s: %v", s.Name, msg)
-			}
-		}
+	s.prepared.Do(s.reset)
+}
 
-		s.added = make(chan struct{}, 1)
-		s.backoff = make(map[string]*backoff)
-		s.cancelations = make(map[string]context.CancelFunc)
-		s.services = make(map[string]Service)
-		s.terminations = make(map[string]context.CancelFunc)
-	})
+func (s *Supervisor) reset() {
+	if s.Name == "" {
+		s.Name = "supervisor"
+	}
+	if s.FailureDecay == 0 {
+		s.FailureDecay = 30
+	}
+	if s.FailureThreshold == 0 {
+		s.FailureThreshold = 5
+	}
+	if s.Backoff == 0 {
+		s.Backoff = 15 * time.Second
+	}
+	if s.Log == nil {
+		s.Log = func(msg interface{}) {
+			log.Printf("%s: %v", s.Name, msg)
+		}
+	}
+
+	s.added = make(chan struct{}, 1)
+	s.backoff = make(map[string]*backoff)
+	s.cancelations = make(map[string]context.CancelFunc)
+	s.services = make(map[string]Service)
+	s.terminations = make(map[string]context.CancelFunc)
 }
 
 // Cancelations return a list of services names and their cancelation calls.

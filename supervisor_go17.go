@@ -113,10 +113,10 @@ func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 // hang until the current call is completed.
 func (s *Supervisor) Serve(ctx context.Context) {
 	s.prepare()
-	serve(s, ctx, func() {})
+	serve(s, ctx, func() bool { return true })
 }
 
-func serve(s *Supervisor, ctx context.Context, afterFail func()) {
+func serve(s *Supervisor, ctx context.Context, retryAfterFail retryAfterFail) {
 	s.running.Lock()
 	defer s.running.Unlock()
 
@@ -124,7 +124,7 @@ func serve(s *Supervisor, ctx context.Context, afterFail func()) {
 	case <-s.added:
 	default:
 	}
-	startServices(s, ctx, afterFail)
+	startServices(s, ctx, retryAfterFail)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -132,7 +132,7 @@ func serve(s *Supervisor, ctx context.Context, afterFail func()) {
 		for {
 			select {
 			case <-s.added:
-				startServices(s, ctx, afterFail)
+				startServices(s, ctx, retryAfterFail)
 
 			case <-ctx.Done():
 				wg.Done()
@@ -152,7 +152,7 @@ func serve(s *Supervisor, ctx context.Context, afterFail func()) {
 	s.cleanchan()
 }
 
-func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func()) {
+func startServices(s *Supervisor, supervisorCtx context.Context, retryAfterFail retryAfterFail) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -185,7 +185,6 @@ func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func(
 					}
 					defer func() {
 						if r := recover(); r != nil {
-
 							select {
 							case <-terminateCtx.Done():
 								s.Log(fmt.Sprintf("%s not restarting (termination after panic): %v", name, r))
@@ -195,8 +194,7 @@ func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func(
 								retry = false
 							default:
 								s.Log(fmt.Sprintf("%s panic: %v", name, r))
-								afterFail()
-								retry = true
+								retry = retryAfterFail()
 							}
 						}
 					}()
@@ -215,9 +213,9 @@ func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func(
 						s.Log(fmt.Sprintf("%s not restarting (supervisor halt after failure)", name))
 						return false
 					default:
-						s.Log(fmt.Sprintf("%s failed", name))
-						afterFail()
-						return true
+						r := retryAfterFail()
+						s.Log(fmt.Sprintf("%s failed (restart: %v)", name, r))
+						return r
 					}
 				}()
 				if !retry {
@@ -253,7 +251,7 @@ func (g *Group) Serve(ctx context.Context) {
 		panic("Supervisor missing for this Group.")
 	}
 	g.Supervisor.prepare()
-	serve(g.Supervisor, ctx, func() {
+	serve(g.Supervisor, ctx, func() bool {
 		g.mu.Lock()
 		g.Log("restarting all services after failure")
 		for _, c := range g.terminations {
@@ -265,6 +263,7 @@ func (g *Group) Serve(ctx context.Context) {
 		default:
 		}
 		g.mu.Unlock()
+		return false
 	})
 }
 

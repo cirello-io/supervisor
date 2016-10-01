@@ -342,23 +342,6 @@ func TestServiceList(t *testing.T) {
 	wg.Done()
 }
 
-func TestRestart(t *testing.T) {
-	t.Parallel()
-
-	var supervisor Supervisor
-	var svc1 waitservice
-	supervisor.Add(&svc1)
-
-	for i := 1; i <= 20; i++ {
-		ctx, _ := contextWithTimeout(time.Millisecond)
-		supervisor.Serve(ctx)
-		if svc1.count != i {
-			t.Errorf("wait service should have been started %d. got: %d", i, svc1.count)
-			break
-		}
-	}
-}
-
 func TestGroup(t *testing.T) {
 	t.Parallel()
 

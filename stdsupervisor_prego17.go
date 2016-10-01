@@ -2,11 +2,7 @@
 
 package supervisor
 
-import (
-	"time"
-
-	"golang.org/x/net/context"
-)
+import "golang.org/x/net/context"
 
 var (
 	defaultContext = context.Background()
@@ -32,8 +28,4 @@ func Cancelations() map[string]context.CancelFunc {
 // is completed.
 func ServeContext(ctx context.Context) {
 	DefaultSupervisor.Serve(ctx)
-}
-
-func contextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), timeout)
 }

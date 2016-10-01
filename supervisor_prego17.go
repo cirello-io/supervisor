@@ -172,23 +172,29 @@ func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func(
 			s.runningServices.Add(1)
 			wg.Done()
 			for {
+				s.Log(fmt.Sprintf("%s starting", name))
 				retry := func() (retry bool) {
 					select {
 					case <-terminateCtx.Done():
+						s.Log(fmt.Sprintf("%s start aborted (termination)", name))
 						return false
 					case <-supervisorCtx.Done():
+						s.Log(fmt.Sprintf("%s start aborted (supervisor)", name))
 						return false
 					default:
 					}
 					defer func() {
 						if r := recover(); r != nil {
-							s.Log(fmt.Sprintf("trapped panic (%s): %v", name, r))
+
 							select {
 							case <-terminateCtx.Done():
+								s.Log(fmt.Sprintf("%s not restarting (termination after panic): %v", name, r))
 								retry = false
 							case <-supervisorCtx.Done():
+								s.Log(fmt.Sprintf("%s not restarting (supervisor halt after panic): %v", name, r))
 								retry = false
 							default:
+								s.Log(fmt.Sprintf("%s panic: %v", name, r))
 								afterFail()
 								retry = true
 							}
@@ -203,10 +209,13 @@ func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func(
 
 					select {
 					case <-terminateCtx.Done():
+						s.Log(fmt.Sprintf("%s not restarting (termination after failure)", name))
 						return false
 					case <-supervisorCtx.Done():
+						s.Log(fmt.Sprintf("%s not restarting (supervisor halt after failure)", name))
 						return false
 					default:
+						s.Log(fmt.Sprintf("%s failed", name))
 						afterFail()
 						return true
 					}
@@ -214,7 +223,6 @@ func startServices(s *Supervisor, supervisorCtx context.Context, afterFail func(
 				if !retry {
 					break
 				}
-				s.Log(fmt.Sprintf("restarting %s", name))
 				s.mu.Lock()
 				b := s.backoff[name]
 				s.mu.Unlock()
@@ -247,6 +255,7 @@ func (g *Group) Serve(ctx context.Context) {
 	g.Supervisor.prepare()
 	serve(g.Supervisor, ctx, func() {
 		g.mu.Lock()
+		g.Log("restarting all services after failure")
 		for _, c := range g.terminations {
 			c()
 		}

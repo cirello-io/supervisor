@@ -5,7 +5,7 @@ package supervisor
 import "context"
 
 var (
-	defaultContext context.Context = context.Background()
+	defaultContext = context.Background()
 
 	// Cancel signal for the internal context
 	Cancel context.CancelFunc = func() {}

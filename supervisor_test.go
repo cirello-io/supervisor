@@ -356,42 +356,27 @@ func TestRestart(t *testing.T) {
 	}
 }
 
-type failingservice struct {
-	id, count int
-}
 
 func (s *failingservice) String() string {
 	return fmt.Sprintf("failing service %v", s.id)
 }
 
-type panicservice struct {
-	id, count int
-}
 
 func (s *panicservice) String() string {
 	return fmt.Sprintf("panic service %v", s.id)
 }
 
-type restartableservice struct {
-	id        int
-	restarted chan struct{}
-}
 
 func (s *restartableservice) String() string {
 	return fmt.Sprintf("restartable service %v", *s)
 }
 
-type Simpleservice int
+
 
 func (s *Simpleservice) String() string {
 	return fmt.Sprintf("simple service %d", int(*s))
 }
 
-type waitservice struct {
-	id    int
-	mu    sync.Mutex
-	count int
-}
 
 func (s *waitservice) String() string {
 	return fmt.Sprintf("wait service %v", s.id)

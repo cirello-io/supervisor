@@ -51,7 +51,6 @@ func TestDefaultSupevisor(t *testing.T) {
 		Serve()
 		wg.Done()
 	}()
-	<-DefaultSupervisor.started
 
 	svc.Wait()
 	cs := Cancelations()
@@ -68,9 +67,10 @@ func TestServeGroup(t *testing.T) {
 
 	ctx, cancel := contextWithTimeout(10 * time.Second)
 	defaultContext = ctx
-	svc := waitservice{id: 1}
+	svc := &holdingservice{id: 1}
+	svc.Add(1)
 
-	Add(&svc)
+	Add(svc)
 	if len(DefaultSupervisor.services) != 1 {
 		t.Errorf("%s should have been added", svc.String())
 	}
@@ -80,7 +80,7 @@ func TestServeGroup(t *testing.T) {
 		t.Errorf("%s should have been removed. services: %#v", svc.String(), DefaultSupervisor.services)
 	}
 
-	Add(&svc)
+	Add(svc)
 
 	svcs := Services()
 	if _, ok := svcs[svc.String()]; !ok {
@@ -93,7 +93,8 @@ func TestServeGroup(t *testing.T) {
 		ServeGroup()
 		wg.Done()
 	}()
-	<-DefaultSupervisor.started
+
+	svc.Wait()
 
 	cs := Cancelations()
 	if _, ok := cs[svc.String()]; !ok {

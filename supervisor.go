@@ -80,10 +80,6 @@ func (s *Supervisor) cleanchan() {
 	case <-s.added:
 	default:
 	}
-	select {
-	case <-s.started:
-	default:
-	}
 }
 
 type backoff struct {
@@ -125,8 +121,6 @@ type restartableservice struct {
 	id        int
 	restarted chan struct{}
 }
-
-type simpleservice int
 
 type waitservice struct {
 	id    int

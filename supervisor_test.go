@@ -208,7 +208,7 @@ func TestRemovePanicService(t *testing.T) {
 	svc3.Add(1)
 	supervisor.Add(&svc3)
 
-	ctx, _ := contextWithTimeout(6 * time.Second)
+	ctx, cancel := contextWithTimeout(30 * time.Second)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -218,8 +218,13 @@ func TestRemovePanicService(t *testing.T) {
 
 	svc3.Wait()
 	supervisor.Remove(svc1.String())
-
+	cancel()
 	wg.Wait()
+
+	svcs := supervisor.Services()
+	if _, ok := svcs[svc1.String()]; ok {
+		t.Errorf("%s should have been removed.", &svc1)
+	}
 }
 
 func TestFailing(t *testing.T) {

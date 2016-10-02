@@ -6,10 +6,15 @@ import "golang.org/x/net/context"
 
 var (
 	defaultContext = context.Background()
-
-	// Cancel signal for the internal context
-	Cancel context.CancelFunc = func() {}
 )
+
+// SetDefaultContext allows to change the context used for supervisor.Serve()
+// and supervisor.ServeGroup().
+func SetDefaultContext(ctx context.Context) {
+	running.Lock()
+	defaultContext = ctx
+	running.Unlock()
+}
 
 // Add inserts new service into the DefaultSupervisor. If the DefaultSupervisor
 // is already started, it will start it automatically. If the same service is
@@ -30,8 +35,10 @@ func Cancelations() map[string]context.CancelFunc {
 // restarted. In case of concurrent calls, it will hang until the current call
 // is completed. After its conclusion, its internal state is reset.
 func ServeContext(ctx context.Context) {
+	running.Lock()
 	DefaultSupervisor.Serve(ctx)
 	DefaultSupervisor.reset()
+	running.Unlock()
 }
 
 // ServeGroupContext starts the DefaultSupervisor tree with a custom
@@ -40,10 +47,12 @@ func ServeContext(ctx context.Context) {
 // until the current call is completed. After its conclusion, its internal
 // state is reset.
 func ServeGroupContext(ctx context.Context) {
+	running.Lock()
 	var group Group
 	group.Supervisor = &DefaultSupervisor
 	group.Serve(ctx)
 	DefaultSupervisor.reset()
+	running.Unlock()
 }
 
 // Serve starts the DefaultSupervisor tree. It can be started only once at a
@@ -54,10 +63,9 @@ func ServeGroupContext(ctx context.Context) {
 // After its conclusion, its internal state is reset.
 func Serve() {
 	running.Lock()
-	var c context.CancelFunc
-	defaultContext, c = context.WithCancel(context.Background())
-	Cancel = c
-	ServeContext(defaultContext)
+	DefaultSupervisor.Serve(defaultContext)
+	DefaultSupervisor.reset()
+	defaultContext = context.Background()
 	running.Unlock()
 }
 
@@ -70,9 +78,10 @@ func Serve() {
 // state is reset.
 func ServeGroup() {
 	running.Lock()
-	var c context.CancelFunc
-	defaultContext, c = context.WithCancel(context.Background())
-	Cancel = c
-	ServeGroupContext(defaultContext)
+	var group Group
+	group.Supervisor = &DefaultSupervisor
+	group.Serve(defaultContext)
+	DefaultSupervisor.reset()
+	defaultContext = context.Background()
 	running.Unlock()
 }

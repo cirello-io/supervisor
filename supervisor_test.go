@@ -23,12 +23,14 @@ func TestCascaded(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
+	supervisor.Name = "TestCascaded root"
 	svc1 := waitservice{id: 1}
 	supervisor.Add(&svc1)
 	svc2 := waitservice{id: 2}
 	supervisor.Add(&svc2)
 
 	var childSupervisor Supervisor
+	childSupervisor.Name = "TestCascaded child"
 	svc3 := waitservice{id: 3}
 	childSupervisor.Add(&svc3)
 	svc4 := waitservice{id: 4}
@@ -53,6 +55,7 @@ func TestLog(t *testing.T) {
 	t.Parallel()
 
 	supervisor := Supervisor{
+		Name:    "TestLog",
 		Backoff: 500 * time.Millisecond,
 	}
 	svc1 := panicservice{id: 1}
@@ -66,6 +69,7 @@ func TestCascadedWithProblems(t *testing.T) {
 	t.Parallel()
 
 	supervisor := Supervisor{
+		Name:    "TestCascadedWithProblems root",
 		Backoff: 1 * time.Second,
 		Log: func(msg interface{}) {
 			t.Log("supervisor log (cascaded with problems):", msg)
@@ -77,6 +81,7 @@ func TestCascadedWithProblems(t *testing.T) {
 	supervisor.Add(&svc2)
 
 	childSupervisor := Supervisor{
+		Name:    "TestCascadedWithProblems child",
 		Backoff: 250 * time.Millisecond,
 		Log: func(msg interface{}) {
 			t.Log("supervisor log (cascaded with problems - child):", msg)
@@ -110,6 +115,7 @@ func TestPanic(t *testing.T) {
 	t.Parallel()
 
 	supervisor := Supervisor{
+		Name:    "TestPanic supervisor",
 		Backoff: 500 * time.Millisecond,
 		Log: func(msg interface{}) {
 			t.Log("supervisor log (panic):", msg)
@@ -131,6 +137,7 @@ func TestFailing(t *testing.T) {
 	t.Parallel()
 
 	supervisor := Supervisor{
+		Name:    "TestFailing supervisor",
 		Backoff: 1 * time.Second,
 		Log: func(msg interface{}) {
 			t.Log("supervisor log (failing):", msg)
@@ -152,6 +159,7 @@ func TestAddServiceAfterServe(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
+	supervisor.Name = "TestAddServiceAfterServe supervisor"
 	svc1 := &holdingservice{id: 1}
 	svc1.Add(1)
 	supervisor.Add(svc1)
@@ -226,6 +234,7 @@ func TestRemoveServiceAfterServeBug(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
+	supervisor.Name = "TestRemoveServiceAfterServeBug supervisor"
 	svc1 := &holdingservice{id: 1}
 	svc1.Add(1)
 	supervisor.Add(svc1)
@@ -251,6 +260,7 @@ func TestServices(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
+	supervisor.Name = "TestServices supervisor"
 	svc1 := &holdingservice{id: 1}
 	svc1.Add(1)
 	supervisor.Add(svc1)
@@ -283,6 +293,7 @@ func TestManualCancelation(t *testing.T) {
 	t.Parallel()
 
 	supervisor := Supervisor{
+		Name: "TestManualCancelation supervisor",
 		Log: func(msg interface{}) {
 			t.Log("supervisor log (restartable):", msg)
 		},
@@ -320,6 +331,7 @@ func TestServiceList(t *testing.T) {
 	t.Parallel()
 
 	var supervisor Supervisor
+	supervisor.Name = "TestServiceList supervisor"
 	svc1 := holdingservice{id: 1}
 	svc1.Add(1)
 	supervisor.Add(&svc1)
@@ -347,6 +359,7 @@ func TestGroup(t *testing.T) {
 
 	supervisor := Group{
 		Supervisor: &Supervisor{
+			Name: "TestGroup supervisor",
 			Log: func(msg interface{}) {
 				t.Log("group log:", msg)
 			},

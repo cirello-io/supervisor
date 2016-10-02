@@ -79,6 +79,9 @@ func TestCascadedWithProblems(t *testing.T) {
 	supervisor.Add(&svc1)
 	svc2 := panicservice{id: 2}
 	supervisor.Add(&svc2)
+	svcHolding := &holdingservice{id: 98}
+	svcHolding.Add(1)
+	supervisor.Add(svcHolding)
 
 	childSupervisor := Supervisor{
 		Name:    "TestCascadedWithProblems child",
@@ -91,23 +94,35 @@ func TestCascadedWithProblems(t *testing.T) {
 	childSupervisor.Add(&svc3)
 	svc4 := failingservice{id: 4}
 	childSupervisor.Add(&svc4)
+	svcHolding2 := &holdingservice{id: 99}
+	svcHolding2.Add(1)
+	childSupervisor.Add(svcHolding2)
 
 	supervisor.Add(&childSupervisor)
 
 	ctx, _ := contextWithTimeout(5 * time.Second)
-	supervisor.Serve(ctx)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
 
-	if count := getServiceCount(&supervisor); count != 3 {
+	svcHolding.Wait()
+	svcHolding2.Wait()
+	wg.Wait()
+
+	if count := getServiceCount(&supervisor); count != 4 {
 		t.Errorf("unexpected service count: %v", count)
 	}
 
 	switch {
 	case svc1.count != 1, svc3.count != 1:
-		t.Errorf("services should have been executed only once. %d %d %d %d",
-			svc1.count, svc2.count, svc3.count, svc4.count)
+		t.Errorf("services should have been executed only once. svc1.count:%d svc3.count: %d",
+			svc1.count, svc3.count)
 	case svc2.count <= 1, svc4.count <= 1:
-		t.Errorf("services should have been executed at least once. %d %d %d %d",
-			svc1.count, svc2.count, svc3.count, svc4.count)
+		t.Errorf("services should have been executed at least once. svc2.count:%d svc4.count: %d",
+			svc2.count, svc4.count)
 	}
 }
 

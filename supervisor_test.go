@@ -188,6 +188,40 @@ func TestPanicBug(t *testing.T) {
 	}
 }
 
+func TestRemovePanicService(t *testing.T) {
+	t.Parallel()
+
+	supervisor := Group{
+		Supervisor: &Supervisor{
+			Name:    "TestRemovePanicService supervisor",
+			Backoff: 2 * time.Second,
+			Log: func(msg interface{}) {
+				t.Log("supervisor log (panic bug):", msg)
+			},
+		},
+	}
+	svc1 := quickpanicservice{id: 1}
+	supervisor.Add(&svc1)
+	svc2 := waitservice{id: 2}
+	supervisor.Add(&svc2)
+	svc3 := holdingservice{id: 3}
+	svc3.Add(1)
+	supervisor.Add(&svc3)
+
+	ctx, _ := contextWithTimeout(6 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+
+	svc3.Wait()
+	supervisor.Remove(svc1.String())
+
+	wg.Wait()
+}
+
 func TestFailing(t *testing.T) {
 	t.Parallel()
 

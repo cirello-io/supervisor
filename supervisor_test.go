@@ -19,6 +19,18 @@ func TestString(t *testing.T) {
 	}
 }
 
+func TestStringDefaultName(t *testing.T) {
+	t.Parallel()
+
+	const expected = "supervisor"
+	var supervisor Supervisor
+	supervisor.prepare()
+
+	if got := fmt.Sprintf("%s", &supervisor); got != expected {
+		t.Errorf("error getting supervisor name: %s", got)
+	}
+}
+
 func TestCascaded(t *testing.T) {
 	t.Parallel()
 

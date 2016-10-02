@@ -115,7 +115,13 @@ func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 // hang until the current call is completed.
 func (s *Supervisor) Serve(ctx context.Context) {
 	s.prepare()
-	serve(s, ctx, func(string) bool { return true })
+	serve(s, ctx, func(name string) bool {
+		s.mu.Lock()
+		b := s.backoff[name]
+		s.mu.Unlock()
+		b.wait()
+		return true
+	})
 }
 
 func serve(s *Supervisor, ctx context.Context, retryAfterFail retryAfterFail) {
@@ -223,10 +229,6 @@ func startServices(s *Supervisor, supervisorCtx context.Context, retryAfterFail 
 				if !retry {
 					break
 				}
-				s.mu.Lock()
-				b := s.backoff[name]
-				s.mu.Unlock()
-				b.wait()
 			}
 			s.runningServices.Done()
 		}(name, svc)

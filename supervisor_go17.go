@@ -71,6 +71,7 @@ func (s *Supervisor) prepare() {
 }
 
 func (s *Supervisor) reset() {
+	s.mu.Lock()
 	if s.Name == "" {
 		s.Name = "supervisor"
 	}
@@ -94,6 +95,7 @@ func (s *Supervisor) reset() {
 	s.cancelations = make(map[string]context.CancelFunc)
 	s.services = make(map[string]Service)
 	s.terminations = make(map[string]context.CancelFunc)
+	s.mu.Unlock()
 }
 
 // Cancelations return a list of services names and their cancelation calls.

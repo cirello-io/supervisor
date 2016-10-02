@@ -85,6 +85,26 @@ func (s *panicservice) String() string {
 	return fmt.Sprintf("panic service %v", s.id)
 }
 
+type quickpanicservice struct {
+	id, count int
+}
+
+func (s *quickpanicservice) Serve(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			s.count++
+			panic("forcing panic")
+		}
+	}
+}
+
+func (s *quickpanicservice) String() string {
+	return fmt.Sprintf("panic service %v", s.id)
+}
+
 type restartableservice struct {
 	id        int
 	restarted chan struct{}

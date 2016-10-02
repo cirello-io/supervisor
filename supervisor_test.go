@@ -141,6 +141,12 @@ func TestCascadedWithProblems(t *testing.T) {
 func TestPanic(t *testing.T) {
 	t.Parallel()
 
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
 	supervisor := Supervisor{
 		Name:    "TestPanic supervisor",
 		Backoff: 500 * time.Millisecond,
@@ -154,7 +160,6 @@ func TestPanic(t *testing.T) {
 	ctx, _ := contextWithTimeout(1 * time.Second)
 	supervisor.Serve(ctx)
 
-	// should arrive here with no panic
 	if svc1.count == 1 {
 		t.Error("the failed service should have been started at least once.")
 	}
@@ -230,6 +235,12 @@ func TestRemovePanicService(t *testing.T) {
 func TestFailing(t *testing.T) {
 	t.Parallel()
 
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
 	supervisor := Supervisor{
 		Name:    "TestFailing supervisor",
 		Backoff: 1 * time.Second,
@@ -243,7 +254,6 @@ func TestFailing(t *testing.T) {
 	ctx, _ := contextWithTimeout(3 * time.Second)
 	supervisor.Serve(ctx)
 
-	// should arrive here with no panic
 	if svc1.count == 1 {
 		t.Error("the failed service should have been started at least once.")
 	}
@@ -476,12 +486,18 @@ func TestGroup(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("unexpected panic: %v", r)
+			}
+		}()
+		defer wg.Done()
+
 		supervisor.Serve(ctx)
-		// should arrive here with no panic
 		if !(svc1.count == svc2.count && svc1.count == 2) {
 			t.Errorf("affected service of a group should affect all. svc1.count: %d svc2.count: %d (both should be 2)", svc1.count, svc2.count)
 		}
-		wg.Done()
+
 	}()
 	svc1.Wait()
 	svc2.Wait()

@@ -115,7 +115,7 @@ func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 // hang until the current call is completed.
 func (s *Supervisor) Serve(ctx context.Context) {
 	s.prepare()
-	serve(s, ctx, func() bool { return true })
+	serve(s, ctx, func(string) bool { return true })
 }
 
 func serve(s *Supervisor, ctx context.Context, retryAfterFail retryAfterFail) {
@@ -196,7 +196,7 @@ func startServices(s *Supervisor, supervisorCtx context.Context, retryAfterFail 
 								retry = false
 							default:
 								s.Log(fmt.Sprintf("%s panic: %v", name, r))
-								retry = retryAfterFail()
+								retry = retryAfterFail(name)
 							}
 						}
 					}()
@@ -215,7 +215,7 @@ func startServices(s *Supervisor, supervisorCtx context.Context, retryAfterFail 
 						s.Log(fmt.Sprintf("%s not restarting (supervisor halt after failure)", name))
 						return false
 					default:
-						r := retryAfterFail()
+						r := retryAfterFail(name)
 						s.Log(fmt.Sprintf("%s failed (restart: %v)", name, r))
 						return r
 					}
@@ -253,13 +253,17 @@ func (g *Group) Serve(ctx context.Context) {
 		panic("Supervisor missing for this Group.")
 	}
 	g.Supervisor.prepare()
-	serve(g.Supervisor, ctx, func() bool {
+	serve(g.Supervisor, ctx, func(name string) bool {
 		g.mu.Lock()
 		g.Log("restarting all services after failure")
 		for _, c := range g.terminations {
 			c()
 		}
 		g.cancelations = make(map[string]context.CancelFunc)
+
+		b := g.backoff[name]
+		b.wait()
+
 		select {
 		case g.added <- struct{}{}:
 		default:

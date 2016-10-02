@@ -160,6 +160,34 @@ func TestPanic(t *testing.T) {
 	}
 }
 
+func TestPanicBug(t *testing.T) {
+	t.Parallel()
+
+	supervisor := Group{
+		Supervisor: &Supervisor{
+			Name:    "TestPanicBug supervisor",
+			Backoff: 2 * time.Second,
+			Log: func(msg interface{}) {
+				t.Log("supervisor log (panic bug):", msg)
+			},
+		},
+	}
+	svc1 := quickpanicservice{id: 1}
+	supervisor.Add(&svc1)
+	svc2 := waitservice{id: 2}
+	supervisor.Add(&svc2)
+
+	ctx, _ := contextWithTimeout(6 * time.Second)
+	supervisor.Serve(ctx)
+
+	if supervisor.backoff[svc1.String()].lastfail.IsZero() {
+		t.Errorf("%s service should have backoff activated at least once", &svc1)
+	}
+	if !supervisor.backoff[svc2.String()].lastfail.IsZero() {
+		t.Errorf("%s service should no thave backoff activated", &svc2)
+	}
+}
+
 func TestFailing(t *testing.T) {
 	t.Parallel()
 

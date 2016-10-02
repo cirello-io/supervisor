@@ -386,6 +386,12 @@ func TestServices(t *testing.T) {
 func TestManualCancelation(t *testing.T) {
 	t.Parallel()
 
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
 	supervisor := Supervisor{
 		Name: "TestManualCancelation supervisor",
 		Log: func(msg interface{}) {
@@ -403,6 +409,7 @@ func TestManualCancelation(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		supervisor.Serve(ctx)
+		wg.Done()
 	}()
 
 	svc1.Wait()
@@ -416,9 +423,7 @@ func TestManualCancelation(t *testing.T) {
 
 	cancel()
 	<-ctx.Done()
-	wg.Done()
-
-	// should arrive here with no panic
+	wg.Wait()
 }
 
 func TestServiceList(t *testing.T) {

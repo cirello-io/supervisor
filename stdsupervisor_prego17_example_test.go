@@ -31,10 +31,16 @@ func ExampleServeContext() {
 	supervisor.Add(svc)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go supervisor.ServeContext(ctx)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.ServeContext(ctx)
+		wg.Done()
+	}()
 
 	svc.Wait()
 	cancel()
+	wg.Wait()
 
 	// output:
 	// simple service 1
@@ -49,11 +55,17 @@ func ExampleServeGroupContext() {
 	supervisor.Add(svc2)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go supervisor.ServeGroupContext(ctx)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.ServeGroupContext(ctx)
+		wg.Done()
+	}()
 
 	svc1.Wait()
 	svc2.Wait()
 	cancel()
+	wg.Wait()
 
 	// unordered output:
 	// simple service 1
@@ -68,10 +80,16 @@ func ExampleServe() {
 	var cancel context.CancelFunc
 	ctx, cancel := context.WithCancel(context.Background())
 	supervisor.SetDefaultContext(ctx)
-	go supervisor.Serve()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve()
+		wg.Done()
+	}()
 
 	svc.Wait()
 	cancel()
+	wg.Wait()
 
 	// output:
 	// simple service 1
@@ -87,11 +105,17 @@ func ExampleServeGroup() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	supervisor.SetDefaultContext(ctx)
-	go supervisor.ServeGroup()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.ServeGroup()
+		wg.Done()
+	}()
 
 	svc1.Wait()
 	svc2.Wait()
 	cancel()
+	wg.Wait()
 
 	// unordered output:
 	// simple service 1

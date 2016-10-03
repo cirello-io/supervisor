@@ -186,13 +186,7 @@ func TestRemovePanicService(t *testing.T) {
 	svc2 := waitservice{id: 2}
 	supervisor.Add(&svc2)
 
-	for {
-		svc2.mu.Lock()
-		c := svc2.count
-		svc2.mu.Unlock()
-		if c >= 2 {
-			break
-		}
+	for svc2.Count() < 2 {
 	}
 
 	supervisor.Remove(svc1.String())

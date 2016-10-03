@@ -82,65 +82,6 @@ func TestLog(t *testing.T) {
 	supervisor.Serve(ctx)
 }
 
-func TestCascadedWithProblems(t *testing.T) {
-	t.Parallel()
-
-	supervisor := Supervisor{
-		Name: "TestCascadedWithProblems root",
-		Log: func(msg interface{}) {
-			t.Log("supervisor log (cascaded with problems):", msg)
-		},
-	}
-	svc1 := waitservice{id: 1}
-	supervisor.Add(&svc1)
-	svc2 := panicservice{id: 2}
-	supervisor.Add(&svc2)
-	svcHolding := &holdingservice{id: 98}
-	svcHolding.Add(1)
-	supervisor.Add(svcHolding)
-
-	childSupervisor := Supervisor{
-		Name: "TestCascadedWithProblems child",
-		Log: func(msg interface{}) {
-			t.Log("supervisor log (cascaded with problems - child):", msg)
-		},
-	}
-	svc3 := waitservice{id: 3}
-	childSupervisor.Add(&svc3)
-	svc4 := failingservice{id: 4}
-	childSupervisor.Add(&svc4)
-	svcHolding2 := &holdingservice{id: 99}
-	svcHolding2.Add(1)
-	childSupervisor.Add(svcHolding2)
-
-	supervisor.Add(&childSupervisor)
-
-	ctx, _ := contextWithTimeout(5 * time.Second)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		supervisor.Serve(ctx)
-		wg.Done()
-	}()
-
-	svcHolding.Wait()
-	svcHolding2.Wait()
-	wg.Wait()
-
-	if count := getServiceCount(&supervisor); count != 4 {
-		t.Errorf("unexpected service count: %v", count)
-	}
-
-	switch {
-	case svc1.count != 1, svc3.count != 1:
-		t.Errorf("services should have been executed only once. svc1.count:%d svc3.count: %d",
-			svc1.count, svc3.count)
-	case svc2.count <= 1, svc4.count <= 1:
-		t.Errorf("services should have been executed at least once. svc2.count:%d svc4.count: %d",
-			svc2.count, svc4.count)
-	}
-}
-
 func TestPanic(t *testing.T) {
 	t.Parallel()
 
@@ -785,45 +726,6 @@ func TestSupervisorAbortRestart(t *testing.T) {
 
 	if svc2.count == 1 {
 		t.Error("the restartable service should have been started more than once.")
-	}
-}
-
-func TestTerminationAbortRestart(t *testing.T) {
-	t.Parallel()
-	supervisor := Supervisor{
-		Name: "TestTerminationAbortRestart supervisor",
-		Log: func(msg interface{}) {
-			t.Log("supervisor log (termination abort restart):", msg)
-		},
-	}
-
-	svc1 := &holdingservice{id: 1}
-	svc1.Add(1)
-	supervisor.Add(svc1)
-	svc2 := &failingservice{id: 2}
-	supervisor.Add(svc2)
-
-	ctx, cancel := contextWithTimeout(10 * time.Second)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		supervisor.Serve(ctx)
-		wg.Done()
-	}()
-
-	svc1.Wait()
-	supervisor.Remove(svc2.String())
-
-	svc3 := &holdingservice{id: 3}
-	svc3.Add(1)
-	supervisor.Add(svc3)
-	svc3.Wait()
-
-	cancel()
-	wg.Wait()
-
-	if svc2.count == 0 {
-		t.Error("the failing service should have been started at least once.")
 	}
 }
 

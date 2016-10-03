@@ -28,7 +28,9 @@ func (s *simpleservice) String() string {
 }
 
 type failingservice struct {
-	id, count int
+	id    int
+	mu    sync.Mutex
+	count int
 }
 
 func (s *failingservice) Serve(ctx context.Context) {
@@ -37,13 +39,22 @@ func (s *failingservice) Serve(ctx context.Context) {
 		return
 	default:
 		time.Sleep(100 * time.Millisecond)
+		s.mu.Lock()
 		s.count++
+		s.mu.Unlock()
 		return
 	}
 }
 
 func (s *failingservice) String() string {
 	return fmt.Sprintf("failing service %v", s.id)
+}
+
+func (s *failingservice) Count() int {
+	s.mu.Lock()
+	c := s.count
+	s.mu.Unlock()
+	return c
 }
 
 type holdingservice struct {

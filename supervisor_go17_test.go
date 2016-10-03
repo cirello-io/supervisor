@@ -208,7 +208,9 @@ func (s *transientservice) Serve(ctx context.Context) {
 	s.count++
 	if s.count == 1 {
 		panic("panic once")
+		return
 	}
+	<-ctx.Done()
 }
 
 func (s *transientservice) String() string {

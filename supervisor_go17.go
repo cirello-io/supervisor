@@ -221,7 +221,7 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 					return
 				}
 				processFailure()
-				s.Log(fmt.Sprintf("%s failed", name))
+				s.Log(fmt.Sprintf("%s exited", name))
 			}
 		}(name, svc)
 	}

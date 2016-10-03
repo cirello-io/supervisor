@@ -196,3 +196,22 @@ func (s *panicabortsupervisorservice) Serve(ctx context.Context) {
 func (s *panicabortsupervisorservice) String() string {
 	return fmt.Sprintf("super panic service %v", s.id)
 }
+
+type transientservice struct {
+	id    int
+	mu    sync.Mutex
+	count int
+}
+
+func (s *transientservice) Serve(ctx context.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.count++
+	if s.count == 1 {
+		panic("panic once")
+	}
+}
+
+func (s *transientservice) String() string {
+	return fmt.Sprintf("transient service %v", s.id)
+}

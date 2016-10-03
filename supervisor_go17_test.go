@@ -161,7 +161,7 @@ func (s *temporaryservice) Serve(ctx context.Context) {
 }
 
 func (s *temporaryservice) String() string {
-	return fmt.Sprintf("transient service %v", s.id)
+	return fmt.Sprintf("temporary service %v", s.id)
 }
 
 type triggerpanicservice struct {
@@ -200,6 +200,7 @@ type transientservice struct {
 	id    int
 	mu    sync.Mutex
 	count int
+	sync.WaitGroup
 }
 
 func (s *transientservice) Serve(ctx context.Context) {
@@ -208,8 +209,8 @@ func (s *transientservice) Serve(ctx context.Context) {
 	s.count++
 	if s.count == 1 {
 		panic("panic once")
-		return
 	}
+	s.Done()
 	<-ctx.Done()
 }
 

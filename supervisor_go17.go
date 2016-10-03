@@ -210,10 +210,10 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 				}()
 				select {
 				case <-terminateCtx.Done():
-					s.Log(fmt.Sprintf("%s start aborted (terminated)", name))
+					s.Log(fmt.Sprintf("%s restart aborted (terminated)", name))
 					return
 				case <-supervisorCtx.Done():
-					s.Log(fmt.Sprintf("%s start aborted (supervisor halted)", name))
+					s.Log(fmt.Sprintf("%s restart aborted (supervisor halted)", name))
 					return
 				default:
 				}
@@ -273,4 +273,8 @@ func (g *Group) Serve(ctx context.Context) {
 
 func contextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), timeout)
+}
+
+func contextWithCancel() (context.Context, context.CancelFunc) {
+	return context.WithCancel(context.Background())
 }

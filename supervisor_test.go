@@ -178,26 +178,25 @@ func TestRemovePanicService(t *testing.T) {
 			},
 		},
 	}
+
+	ctx, cancel := contextWithCancel()
+	go supervisor.Serve(ctx)
 	svc1 := quickpanicservice{id: 1}
 	supervisor.Add(&svc1)
 	svc2 := waitservice{id: 2}
 	supervisor.Add(&svc2)
-	svc3 := holdingservice{id: 3}
-	svc3.Add(1)
-	supervisor.Add(&svc3)
 
-	ctx, cancel := contextWithTimeout(30 * time.Second)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		supervisor.Serve(ctx)
-		wg.Done()
-	}()
-	svc3.Wait()
+	for {
+		svc2.mu.Lock()
+		c := svc2.count
+		svc2.mu.Unlock()
+		if c >= 2 {
+			break
+		}
+	}
 
 	supervisor.Remove(svc1.String())
 	cancel()
-	wg.Wait()
 
 	svcs := supervisor.Services()
 	if _, ok := svcs[svc1.String()]; ok {
@@ -690,9 +689,9 @@ func TestServiceList(t *testing.T) {
 
 	var supervisor Supervisor
 	supervisor.Name = "TestServiceList supervisor"
-	svc1 := holdingservice{id: 1}
+	svc1 := &holdingservice{id: 1}
 	svc1.Add(1)
-	supervisor.Add(&svc1)
+	supervisor.Add(svc1)
 
 	ctx, cancel := contextWithTimeout(10 * time.Second)
 	var wg sync.WaitGroup
@@ -703,7 +702,7 @@ func TestServiceList(t *testing.T) {
 	svc1.Wait()
 
 	svcs := supervisor.Services()
-	if svc, ok := svcs[svc1.String()]; !ok || &svc1 != svc.(*holdingservice) {
+	if svc, ok := svcs[svc1.String()]; !ok || svc1 != svc.(*holdingservice) {
 		t.Errorf("could not find service when listing them. %s missing", svc1.String())
 	}
 
@@ -712,7 +711,7 @@ func TestServiceList(t *testing.T) {
 	wg.Done()
 }
 
-func TestGroup(t *testing.T) {
+func TestValidGroup(t *testing.T) {
 	t.Parallel()
 
 	supervisor := Group{
@@ -723,45 +722,23 @@ func TestGroup(t *testing.T) {
 			},
 		},
 	}
-	svc1 := holdingservice{id: 1}
-	svc1.Add(1)
-	supervisor.Add(&svc1)
+	ctx, cancel := contextWithCancel()
+	go supervisor.Serve(ctx)
 
-	svc2 := holdingservice{id: 2}
-	svc2.Add(1)
-	supervisor.Add(&svc2)
+	svc1 := &temporaryservice{id: 1}
+	supervisor.Add(svc1)
 
-	ctx, cancel := contextWithTimeout(3 * time.Second)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				t.Errorf("unexpected panic: %v", r)
-			}
-		}()
-		defer wg.Done()
-
-		supervisor.Serve(ctx)
-		if !(svc1.count == svc2.count && svc1.count == 2) {
-			t.Errorf("affected service of a group should affect all. svc1.count: %d svc2.count: %d (both should be 2)", svc1.count, svc2.count)
-		}
-
-	}()
-	svc1.Wait()
-	svc2.Wait()
-
-	svc1.Add(1)
-	svc2.Add(1)
-
-	cs := supervisor.Cancelations()
-	cs[svc1.String()]()
-
-	svc1.Wait()
-	svc2.Wait()
+	for i := 2; i <= 1000; i++ {
+		svc := &temporaryservice{id: i}
+		supervisor.Add(svc)
+	}
 
 	cancel()
-	wg.Wait()
+
+	if c := svc1.count; c < 2 {
+		t.Errorf("temporary service should have been started at least twice. Got: %d", c)
+	}
+
 }
 
 func TestInvalidGroup(t *testing.T) {
@@ -900,6 +877,7 @@ func TestTransientService(t *testing.T) {
 	}
 
 	svc1 := &transientservice{id: 1}
+	svc1.Add(1)
 	supervisor.AddService(svc1, Transient)
 	svc2 := &holdingservice{id: 2}
 	svc2.Add(1)
@@ -912,18 +890,14 @@ func TestTransientService(t *testing.T) {
 		supervisor.Serve(ctx)
 		wg.Done()
 	}()
+	svc1.Wait()
 	svc2.Wait()
-
-	svc3 := &holdingservice{id: 3}
-	svc3.Add(1)
-	supervisor.Add(svc3)
-	svc3.Wait()
 
 	cancel()
 	wg.Wait()
 
 	if svc1.count != 2 {
-		t.Error("the transient service should have been started just twice.", svc1.count)
+		t.Error("the transient service should have been started just twice.")
 	}
 }
 

@@ -182,13 +182,13 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 		}
 
 		wg.Add(1)
+		s.runningServices.Add(1)
 
 		terminateCtx, terminate := context.WithCancel(supervisorCtx)
 		s.cancelations[name] = terminate
 		s.terminations[name] = terminate
 
 		go func(name string, svc Service) {
-			s.runningServices.Add(1)
 			defer s.runningServices.Done()
 			wg.Done()
 			for {

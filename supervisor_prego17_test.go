@@ -109,12 +109,12 @@ func (s *quickpanicservice) String() string {
 type restartableservice struct {
 	id        int
 	restarted chan struct{}
+	count     int
 }
 
 func (s *restartableservice) Serve(ctx context.Context) {
-	var i int
 	for {
-		i++
+		s.count++
 		select {
 		case <-ctx.Done():
 			return
@@ -129,7 +129,7 @@ func (s *restartableservice) Serve(ctx context.Context) {
 }
 
 func (s *restartableservice) String() string {
-	return fmt.Sprintf("restartable service %v", *s)
+	return fmt.Sprintf("restartable service %v", s.id)
 }
 
 type waitservice struct {
@@ -147,4 +147,36 @@ func (s *waitservice) Serve(ctx context.Context) {
 
 func (s *waitservice) String() string {
 	return fmt.Sprintf("wait service %v", s.id)
+}
+
+type triggerpanicservice struct {
+	id, count int
+}
+
+func (s *triggerpanicservice) Serve(ctx context.Context) {
+	<-ctx.Done()
+	s.count++
+	panic("forcing panic")
+}
+
+func (s *triggerpanicservice) String() string {
+	return fmt.Sprintf("iterative panic service %v", s.id)
+}
+
+type panicabortsupervisorservice struct {
+	id         int
+	cancel     context.CancelFunc
+	supervisor *Supervisor
+}
+
+func (s *panicabortsupervisorservice) Serve(ctx context.Context) {
+	s.supervisor.mu.Lock()
+	defer s.supervisor.mu.Unlock()
+	s.supervisor.terminations = nil
+	s.cancel()
+	panic("forcing panic")
+}
+
+func (s *panicabortsupervisorservice) String() string {
+	return fmt.Sprintf("super panic service %v", s.id)
 }

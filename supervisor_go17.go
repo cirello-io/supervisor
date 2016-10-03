@@ -32,17 +32,15 @@ type Supervisor struct {
 	// Name for this supervisor tree, used for logging.
 	Name string
 
-	// FailureDecay is the timespan on which the current failure count will
-	// be halved. Default: 30s (represented in seconds).
-	FailureDecay float64
+	// MaxRestarts is the number of maximum restarts given MaxTime. If more
+	// than MaxRestarts occur in the last MaxTime, then the supervisor
+	// stops all services and halts. Set this to AlwaysRestart to prevent
+	// supervisor halt.
+	MaxRestarts int
 
-	// FailureThreshold is the maximum accepted number of failures, after
-	// decay adjustment, that shall trigger the back-off wait.
-	// Default: 5 failures.
-	FailureThreshold float64
-
-	// Backoff is the wait duration when hit threshold. Default: 15s
-	Backoff time.Duration
+	// MaxTime is the time period on which the internal restart count will
+	// be reset.
+	MaxTime time.Duration
 
 	// Log is a replaceable function used for overall logging.
 	// Default: log.Printf.
@@ -63,7 +61,8 @@ type Supervisor struct {
 	services     map[string]Service            // added services
 	cancelations map[string]context.CancelFunc // each service cancelation
 	terminations map[string]context.CancelFunc // each service termination call
-	backoff      map[string]*backoff           // backoff calculator for failures
+	lastRestart  time.Time
+	restarts     int
 }
 
 func (s *Supervisor) prepare() {
@@ -75,14 +74,11 @@ func (s *Supervisor) reset() {
 	if s.Name == "" {
 		s.Name = "supervisor"
 	}
-	if s.FailureDecay == 0 {
-		s.FailureDecay = 30
+	if s.MaxRestarts == 0 {
+		s.MaxRestarts = 5
 	}
-	if s.FailureThreshold == 0 {
-		s.FailureThreshold = 5
-	}
-	if s.Backoff == 0 {
-		s.Backoff = 15 * time.Second
+	if s.MaxTime == 0 {
+		s.MaxTime = 15 * time.Second
 	}
 	if s.Log == nil {
 		s.Log = func(msg interface{}) {
@@ -91,7 +87,6 @@ func (s *Supervisor) reset() {
 	}
 
 	s.added = make(chan struct{}, 1)
-	s.backoff = make(map[string]*backoff)
 	s.cancelations = make(map[string]context.CancelFunc)
 	s.services = make(map[string]Service)
 	s.terminations = make(map[string]context.CancelFunc)
@@ -115,16 +110,32 @@ func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 // hang until the current call is completed.
 func (s *Supervisor) Serve(ctx context.Context) {
 	s.prepare()
-	serve(s, ctx, func(name string) bool {
-		s.mu.Lock()
-		b := s.backoff[name]
-		s.mu.Unlock()
-		b.wait()
-		return true
-	})
+	restartCtx, cancel := context.WithCancel(ctx)
+	processFailure := func() {
+		restart := s.shouldRestart()
+		if !restart {
+			cancel()
+		}
+	}
+	serve(s, restartCtx, processFailure)
 }
 
-func serve(s *Supervisor, ctx context.Context, retryAfterFail retryAfterFail) {
+func (s *Supervisor) shouldRestart() bool {
+	if s.MaxRestarts == AlwaysRestart {
+		return true
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if time.Since(s.lastRestart) > s.MaxTime {
+		s.restarts = 0
+	}
+	s.lastRestart = time.Now()
+	s.restarts++
+	return s.restarts < s.MaxRestarts
+}
+
+func serve(s *Supervisor, ctx context.Context, processFailure processFailure) {
 	s.running.Lock()
 	defer s.running.Unlock()
 
@@ -132,7 +143,7 @@ func serve(s *Supervisor, ctx context.Context, retryAfterFail retryAfterFail) {
 	case <-s.added:
 	default:
 	}
-	startServices(s, ctx, retryAfterFail)
+	startServices(s, ctx, processFailure)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -140,7 +151,7 @@ func serve(s *Supervisor, ctx context.Context, retryAfterFail retryAfterFail) {
 		for {
 			select {
 			case <-s.added:
-				startServices(s, ctx, retryAfterFail)
+				startServices(s, ctx, processFailure)
 
 			case <-ctx.Done():
 				wg.Done()
@@ -160,7 +171,7 @@ func serve(s *Supervisor, ctx context.Context, retryAfterFail retryAfterFail) {
 	s.cleanchan()
 }
 
-func startServices(s *Supervisor, supervisorCtx context.Context, retryAfterFail retryAfterFail) {
+func startServices(s *Supervisor, supervisorCtx context.Context, processFailure processFailure) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -178,59 +189,34 @@ func startServices(s *Supervisor, supervisorCtx context.Context, retryAfterFail 
 
 		go func(name string, svc Service) {
 			s.runningServices.Add(1)
+			defer s.runningServices.Done()
 			wg.Done()
 			for {
 				s.Log(fmt.Sprintf("%s starting", name))
-				retry := func() (retry bool) {
-					select {
-					case <-terminateCtx.Done():
-						s.Log(fmt.Sprintf("%s start aborted (termination)", name))
-						return false
-					case <-supervisorCtx.Done():
-						s.Log(fmt.Sprintf("%s start aborted (supervisor)", name))
-						return false
-					default:
-					}
+				select {
+				case <-terminateCtx.Done():
+					s.Log(fmt.Sprintf("%s start aborted (terminated)", name))
+					return
+				case <-supervisorCtx.Done():
+					s.Log(fmt.Sprintf("%s start aborted (supervisor halted)", name))
+					return
+				default:
+				}
+				func() {
 					defer func() {
 						if r := recover(); r != nil {
-							select {
-							case <-terminateCtx.Done():
-								s.Log(fmt.Sprintf("%s not restarting (termination after panic): %v", name, r))
-								retry = false
-							case <-supervisorCtx.Done():
-								s.Log(fmt.Sprintf("%s not restarting (supervisor halt after panic): %v", name, r))
-								retry = false
-							default:
-								s.Log(fmt.Sprintf("%s panic: %v", name, r))
-								retry = retryAfterFail(name)
-							}
+							s.Log(fmt.Sprintf("%s panic: %v", name, r))
 						}
 					}()
-
 					ctx, cancel := context.WithCancel(terminateCtx)
 					s.mu.Lock()
 					s.cancelations[name] = cancel
 					s.mu.Unlock()
 					svc.Serve(ctx)
-
-					select {
-					case <-terminateCtx.Done():
-						s.Log(fmt.Sprintf("%s not restarting (termination after failure)", name))
-						return false
-					case <-supervisorCtx.Done():
-						s.Log(fmt.Sprintf("%s not restarting (supervisor halt after failure)", name))
-						return false
-					default:
-						r := retryAfterFail(name)
-						s.Log(fmt.Sprintf("%s failed (restart: %v)", name, r))
-						return r
-					}
 				}()
-				if !retry {
-					break
-				}
+				processFailure()
+				s.Log(fmt.Sprintf("%s failed", name))
 			}
-			s.runningServices.Done()
 		}(name, svc)
 	}
 	wg.Wait()
@@ -255,7 +241,14 @@ func (g *Group) Serve(ctx context.Context) {
 		panic("Supervisor missing for this Group.")
 	}
 	g.Supervisor.prepare()
-	serve(g.Supervisor, ctx, func(name string) bool {
+	restartCtx, cancel := context.WithCancel(ctx)
+
+	processFailure := func() {
+		if !g.shouldRestart() {
+			cancel()
+			return
+		}
+
 		g.mu.Lock()
 		g.Log("restarting all services after failure")
 		for _, c := range g.terminations {
@@ -263,16 +256,13 @@ func (g *Group) Serve(ctx context.Context) {
 		}
 		g.cancelations = make(map[string]context.CancelFunc)
 
-		b := g.backoff[name]
-		b.wait()
-
 		select {
 		case g.added <- struct{}{}:
 		default:
 		}
 		g.mu.Unlock()
-		return false
-	})
+	}
+	serve(g.Supervisor, restartCtx, processFailure)
 }
 
 func contextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {

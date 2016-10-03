@@ -738,28 +738,14 @@ func TestTemporaryService(t *testing.T) {
 		},
 	}
 
+	ctx, cancel := contextWithTimeout(10 * time.Second)
+	go supervisor.Serve(ctx)
 	svc1 := &temporaryservice{id: 1}
 	supervisor.AddService(svc1, Temporary)
-	svc2 := &holdingservice{id: 2}
-	svc2.Add(1)
-	supervisor.Add(svc2)
 
-	ctx, cancel := contextWithTimeout(10 * time.Second)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		supervisor.Serve(ctx)
-		wg.Done()
-	}()
-	svc2.Wait()
-
-	svc3 := &holdingservice{id: 3}
-	svc3.Add(1)
-	supervisor.Add(svc3)
-	svc3.Wait()
-
+	for svc1.Count() < 1 {
+	}
 	cancel()
-	wg.Wait()
 
 	if svc1.count != 1 {
 		t.Error("the temporary service should have been started just once.", svc1.count)

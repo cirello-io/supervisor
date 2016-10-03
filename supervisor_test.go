@@ -2,10 +2,16 @@ package supervisor
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"sync"
 	"testing"
 	"time"
 )
+
+func init() {
+	log.SetOutput(ioutil.Discard)
+}
 
 func TestString(t *testing.T) {
 	t.Parallel()
@@ -370,43 +376,6 @@ func TestTerminationAfterPanic(t *testing.T) {
 
 	if svc1.count > 1 {
 		t.Error("the panic service should have not been started more than once.")
-	}
-}
-
-func TestEarlyCancel(t *testing.T) {
-	t.Parallel()
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("unexpected panic: %v", r)
-		}
-	}()
-
-	supervisor := Supervisor{
-		Name:        "TestEarlyCancel supervisor",
-		MaxRestarts: AlwaysRestart,
-		Log: func(msg interface{}) {
-			t.Log("supervisor log (termination after panic):", msg)
-		},
-	}
-
-	svc1 := &holdingservice{id: 1}
-	svc1.Add(1)
-	supervisor.Add(svc1)
-
-	ctx, cancel := contextWithTimeout(5 * time.Second)
-	cancel()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		supervisor.Serve(ctx)
-		wg.Done()
-	}()
-	wg.Wait()
-
-	if svc1.count != 0 {
-		t.Error("holding service should not have been started")
 	}
 }
 
@@ -796,6 +765,7 @@ func TestGroup(t *testing.T) {
 }
 
 func TestInvalidGroup(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("defer called, but not because of panic")
@@ -808,6 +778,7 @@ func TestInvalidGroup(t *testing.T) {
 }
 
 func TestSupervisorAbortRestart(t *testing.T) {
+	t.Parallel()
 	supervisor := Supervisor{
 		Name: "TestAbortRestart supervisor",
 		Log: func(msg interface{}) {
@@ -828,8 +799,13 @@ func TestSupervisorAbortRestart(t *testing.T) {
 		supervisor.Serve(ctx)
 		wg.Done()
 	}()
-
 	svc1.Wait()
+
+	svc3 := &holdingservice{id: 3}
+	svc3.Add(1)
+	supervisor.Add(svc3)
+	svc3.Wait()
+
 	cancel()
 	wg.Wait()
 
@@ -839,6 +815,7 @@ func TestSupervisorAbortRestart(t *testing.T) {
 }
 
 func TestTerminationAbortRestart(t *testing.T) {
+	t.Parallel()
 	supervisor := Supervisor{
 		Name: "TestTerminationAbortRestart supervisor",
 		Log: func(msg interface{}) {
@@ -873,6 +850,43 @@ func TestTerminationAbortRestart(t *testing.T) {
 
 	if svc2.count == 0 {
 		t.Error("the failing service should have been started at least once.")
+	}
+}
+
+func TestTemporaryService(t *testing.T) {
+	t.Parallel()
+	supervisor := Supervisor{
+		Name: "TestTemporaryService supervisor",
+		Log: func(msg interface{}) {
+			t.Log("supervisor log (termination abort restart):", msg)
+		},
+	}
+
+	svc1 := &temporaryservice{id: 1}
+	supervisor.AddService(svc1, Temporary)
+	svc2 := &holdingservice{id: 2}
+	svc2.Add(1)
+	supervisor.Add(svc2)
+
+	ctx, cancel := contextWithTimeout(10 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+	svc2.Wait()
+
+	svc3 := &holdingservice{id: 3}
+	svc3.Add(1)
+	supervisor.Add(svc3)
+	svc3.Wait()
+
+	cancel()
+	wg.Wait()
+
+	if svc1.count != 1 {
+		t.Error("the transient service should have been started just once.", svc1.count)
 	}
 }
 

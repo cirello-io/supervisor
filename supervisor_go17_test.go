@@ -148,6 +148,22 @@ func (s *waitservice) String() string {
 	return fmt.Sprintf("wait service %v", s.id)
 }
 
+type temporaryservice struct {
+	id    int
+	mu    sync.Mutex
+	count int
+}
+
+func (s *temporaryservice) Serve(ctx context.Context) {
+	s.mu.Lock()
+	s.count++
+	s.mu.Unlock()
+}
+
+func (s *temporaryservice) String() string {
+	return fmt.Sprintf("transient service %v", s.id)
+}
+
 type triggerpanicservice struct {
 	id, count int
 }

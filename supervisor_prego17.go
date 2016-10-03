@@ -58,7 +58,7 @@ type Supervisor struct {
 	runningServices sync.WaitGroup
 
 	mu           sync.Mutex
-	services     map[string]Service            // added services
+	services     map[string]service            // added services
 	cancelations map[string]context.CancelFunc // each service cancelation
 	terminations map[string]context.CancelFunc // each service termination call
 	lastRestart  time.Time
@@ -88,7 +88,7 @@ func (s *Supervisor) reset() {
 
 	s.added = make(chan struct{}, 1)
 	s.cancelations = make(map[string]context.CancelFunc)
-	s.services = make(map[string]Service)
+	s.services = make(map[string]service)
 	s.terminations = make(map[string]context.CancelFunc)
 	s.mu.Unlock()
 }
@@ -187,12 +187,27 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 		s.cancelations[name] = terminate
 		s.terminations[name] = terminate
 
-		go func(name string, svc Service) {
+		go func(name string, svc service) {
 			s.runningServices.Add(1)
 			defer s.runningServices.Done()
 			wg.Done()
-			for {
+			retry := true
+			for retry {
+				retry = svc.svctype == Permanent
 				s.Log(fmt.Sprintf("%s starting", name))
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							s.Log(fmt.Sprintf("%s panic: %v", name, r))
+							retry = svc.svctype == Permanent || svc.svctype == Transient
+						}
+					}()
+					ctx, cancel := context.WithCancel(terminateCtx)
+					s.mu.Lock()
+					s.cancelations[name] = cancel
+					s.mu.Unlock()
+					svc.svc.Serve(ctx)
+				}()
 				select {
 				case <-terminateCtx.Done():
 					s.Log(fmt.Sprintf("%s start aborted (terminated)", name))
@@ -202,18 +217,9 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 					return
 				default:
 				}
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							s.Log(fmt.Sprintf("%s panic: %v", name, r))
-						}
-					}()
-					ctx, cancel := context.WithCancel(terminateCtx)
-					s.mu.Lock()
-					s.cancelations[name] = cancel
-					s.mu.Unlock()
-					svc.Serve(ctx)
-				}()
+				if svc.svctype == Temporary {
+					return
+				}
 				processFailure()
 				s.Log(fmt.Sprintf("%s failed", name))
 			}

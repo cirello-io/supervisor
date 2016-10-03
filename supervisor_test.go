@@ -67,8 +67,7 @@ func TestLog(t *testing.T) {
 	t.Parallel()
 
 	supervisor := Supervisor{
-		Name:    "TestLog",
-		Backoff: 500 * time.Millisecond,
+		Name: "TestLog",
 	}
 	svc1 := panicservice{id: 1}
 	supervisor.Add(&svc1)
@@ -81,8 +80,7 @@ func TestCascadedWithProblems(t *testing.T) {
 	t.Parallel()
 
 	supervisor := Supervisor{
-		Name:    "TestCascadedWithProblems root",
-		Backoff: 1 * time.Second,
+		Name: "TestCascadedWithProblems root",
 		Log: func(msg interface{}) {
 			t.Log("supervisor log (cascaded with problems):", msg)
 		},
@@ -96,8 +94,7 @@ func TestCascadedWithProblems(t *testing.T) {
 	supervisor.Add(svcHolding)
 
 	childSupervisor := Supervisor{
-		Name:    "TestCascadedWithProblems child",
-		Backoff: 250 * time.Millisecond,
+		Name: "TestCascadedWithProblems child",
 		Log: func(msg interface{}) {
 			t.Log("supervisor log (cascaded with problems - child):", msg)
 		},
@@ -148,8 +145,7 @@ func TestPanic(t *testing.T) {
 	}()
 
 	supervisor := Supervisor{
-		Name:    "TestPanic supervisor",
-		Backoff: 500 * time.Millisecond,
+		Name: "TestPanic supervisor",
 		Log: func(msg interface{}) {
 			t.Log("supervisor log (panic):", msg)
 		},
@@ -165,41 +161,12 @@ func TestPanic(t *testing.T) {
 	}
 }
 
-func TestPanicBug(t *testing.T) {
-	t.Parallel()
-
-	supervisor := Group{
-		Supervisor: &Supervisor{
-			Name:    "TestPanicBug supervisor",
-			Backoff: 2 * time.Second,
-			Log: func(msg interface{}) {
-				t.Log("supervisor log (panic bug):", msg)
-			},
-		},
-	}
-	svc1 := quickpanicservice{id: 1}
-	supervisor.Add(&svc1)
-	svc2 := waitservice{id: 2}
-	supervisor.Add(&svc2)
-
-	ctx, _ := contextWithTimeout(6 * time.Second)
-	supervisor.Serve(ctx)
-
-	if supervisor.backoff[svc1.String()].lastfail.IsZero() {
-		t.Errorf("%s service should have backoff activated at least once", &svc1)
-	}
-	if !supervisor.backoff[svc2.String()].lastfail.IsZero() {
-		t.Errorf("%s service should no thave backoff activated", &svc2)
-	}
-}
-
 func TestRemovePanicService(t *testing.T) {
 	t.Parallel()
 
 	supervisor := Group{
 		Supervisor: &Supervisor{
-			Name:    "TestRemovePanicService supervisor",
-			Backoff: 2 * time.Second,
+			Name: "TestRemovePanicService supervisor",
 			Log: func(msg interface{}) {
 				t.Log("supervisor log (panic bug):", msg)
 			},
@@ -220,8 +187,8 @@ func TestRemovePanicService(t *testing.T) {
 		supervisor.Serve(ctx)
 		wg.Done()
 	}()
-
 	svc3.Wait()
+
 	supervisor.Remove(svc1.String())
 	cancel()
 	wg.Wait()
@@ -242,8 +209,7 @@ func TestFailing(t *testing.T) {
 	}()
 
 	supervisor := Supervisor{
-		Name:    "TestFailing supervisor",
-		Backoff: 1 * time.Second,
+		Name: "TestFailing supervisor",
 		Log: func(msg interface{}) {
 			t.Log("supervisor log (failing):", msg)
 		},
@@ -255,7 +221,321 @@ func TestFailing(t *testing.T) {
 	supervisor.Serve(ctx)
 
 	if svc1.count == 1 {
-		t.Error("the failed service should have been started at least once.")
+		t.Error("the failed service should have been started just once.")
+	}
+}
+
+func TestAlwaysRestart(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
+	supervisor := Supervisor{
+		Name:        "TestAlwaysRestart supervisor",
+		MaxRestarts: AlwaysRestart,
+		Log: func(msg interface{}) {
+			t.Log("supervisor log (always restart):", msg)
+		},
+	}
+	svc1 := failingservice{id: 1}
+	supervisor.Add(&svc1)
+
+	ctx, _ := contextWithTimeout(3 * time.Second)
+	supervisor.Serve(ctx)
+
+	if svc1.count == 1 {
+		t.Error("the failed service should have been started just once.")
+	}
+}
+
+func TestHaltAfterFailure(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
+	supervisor := Supervisor{
+		Name:        "TestHaltAfterFailure supervisor",
+		MaxRestarts: 1,
+		Log: func(msg interface{}) {
+			t.Log("supervisor log (halt after failure):", msg)
+		},
+	}
+	svc1 := failingservice{id: 1}
+	supervisor.Add(&svc1)
+
+	ctx, _ := contextWithTimeout(1 * time.Hour)
+	supervisor.Serve(ctx)
+
+	if svc1.count != 1 {
+		t.Error("the failed service should have been started just once.")
+	}
+}
+
+func TestHaltAfterPanic(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
+	supervisor := Supervisor{
+		Name:        "TestHaltAfterPanic supervisor",
+		MaxRestarts: AlwaysRestart,
+		Log: func(msg interface{}) {
+			t.Log("supervisor log (halt after panic):", msg)
+		},
+	}
+
+	ctx, cancel := contextWithTimeout(5 * time.Second)
+
+	svc1 := &holdingservice{id: 1}
+	svc1.Add(1)
+	supervisor.Add(svc1)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+	svc1.Wait()
+
+	svc2 := &panicabortsupervisorservice{id: 2, cancel: cancel, supervisor: &supervisor}
+	supervisor.Add(svc2)
+
+	wg.Wait()
+
+	if svc1.count > 1 {
+		t.Error("the holding service should have not been started more than once.")
+	}
+}
+
+func TestTerminationAfterPanic(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
+	supervisor := Supervisor{
+		Name:        "TestTerminationAfterPanic supervisor",
+		MaxRestarts: AlwaysRestart,
+		Log: func(msg interface{}) {
+			t.Log("supervisor log (termination after panic):", msg)
+		},
+	}
+	svc1 := &triggerpanicservice{id: 1}
+	supervisor.Add(svc1)
+	svc2 := &holdingservice{id: 2}
+	svc2.Add(1)
+	supervisor.Add(svc2)
+
+	ctx, cancel := contextWithTimeout(5 * time.Second)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+	svc2.Wait()
+
+	svc3 := &holdingservice{id: 3}
+	svc3.Add(1)
+	supervisor.Add(svc3)
+	svc3.Wait()
+
+	supervisor.Remove(svc1.String())
+
+	svc4 := &holdingservice{id: 4}
+	svc4.Add(1)
+	supervisor.Add(svc4)
+	svc4.Wait()
+
+	cancel()
+
+	wg.Wait()
+
+	if svc1.count > 1 {
+		t.Error("the panic service should have not been started more than once.")
+	}
+}
+
+func TestEarlyCancel(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
+	supervisor := Supervisor{
+		Name:        "TestEarlyCancel supervisor",
+		MaxRestarts: AlwaysRestart,
+		Log: func(msg interface{}) {
+			t.Log("supervisor log (termination after panic):", msg)
+		},
+	}
+
+	svc1 := &holdingservice{id: 1}
+	svc1.Add(1)
+	supervisor.Add(svc1)
+
+	ctx, cancel := contextWithTimeout(5 * time.Second)
+	cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+	wg.Wait()
+
+	if svc1.count != 0 {
+		t.Error("holding service should not have been started")
+	}
+}
+
+func TestGroupTerminationAfterPanic(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
+	supervisor := Group{
+		Supervisor: &Supervisor{
+			Name:        "TestTerminationAfterPanicGroup supervisor",
+			MaxRestarts: AlwaysRestart,
+			Log: func(msg interface{}) {
+				t.Log("supervisor log (termination after panic group):", msg)
+			},
+		},
+	}
+	svc1 := panicservice{id: 1}
+	supervisor.Add(&svc1)
+	svc2 := &holdingservice{id: 2}
+	svc2.Add(1)
+	supervisor.Add(svc2)
+
+	ctx, cancel := contextWithTimeout(10 * time.Second)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+
+	svc2.Wait()
+	supervisor.Remove(svc1.String())
+
+	svc3 := &holdingservice{id: 3}
+	svc3.Add(1)
+	supervisor.Add(svc3)
+	svc3.Wait()
+
+	svc4 := panicservice{id: 4}
+	supervisor.Add(&svc4)
+	svc5 := &holdingservice{id: 5}
+	svc5.Add(1)
+	supervisor.Add(svc5)
+	svc5.Wait()
+
+	cancel()
+
+	wg.Wait()
+
+	if svc1.count > 1 {
+		t.Error("the panic service should have not been started more than once.")
+	}
+}
+
+func TestMaxRestart(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
+	supervisor := &Supervisor{
+		Name:        "TestMaxRestart supervisor",
+		MaxRestarts: 1,
+		Log: func(msg interface{}) {
+			t.Log("supervisor log (max restart):", msg)
+		},
+	}
+	svc1 := failingservice{id: 1}
+	supervisor.Add(&svc1)
+
+	ctx, _ := contextWithTimeout(10 * time.Second)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	if svc1.count > 1 {
+		t.Error("the panic service should have not been started more than once.")
+	}
+}
+
+func TestGroupMaxRestart(t *testing.T) {
+	t.Parallel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("unexpected panic: %v", r)
+		}
+	}()
+
+	supervisor := Group{
+		Supervisor: &Supervisor{
+			Name:        "TestMaxRestartGroup supervisor",
+			MaxRestarts: 1,
+			Log: func(msg interface{}) {
+				t.Log("supervisor log (max restart group):", msg)
+			},
+		},
+	}
+	svc1 := failingservice{id: 1}
+	supervisor.Add(&svc1)
+
+	ctx, _ := contextWithTimeout(10 * time.Second)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	if svc1.count > 1 {
+		t.Error("the panic service should have not been started more than once.")
 	}
 }
 
@@ -411,7 +691,7 @@ func TestManualCancelation(t *testing.T) {
 	svc1 := &holdingservice{id: 1}
 	svc1.Add(1)
 	supervisor.Add(svc1)
-	svc2 := restartableservice{2, make(chan struct{})}
+	svc2 := restartableservice{id: 2, restarted: make(chan struct{})}
 	supervisor.Add(&svc2)
 
 	ctx, cancel := contextWithTimeout(10 * time.Second)
@@ -525,6 +805,75 @@ func TestInvalidGroup(t *testing.T) {
 	ctx, _ := contextWithTimeout(10 * time.Second)
 	group.Serve(ctx)
 	t.Error("this group is invalid and should have had panic()'d")
+}
+
+func TestSupervisorAbortRestart(t *testing.T) {
+	supervisor := Supervisor{
+		Name: "TestAbortRestart supervisor",
+		Log: func(msg interface{}) {
+			t.Log("supervisor log (abort restart):", msg)
+		},
+	}
+
+	svc1 := &holdingservice{id: 1}
+	svc1.Add(1)
+	supervisor.Add(svc1)
+	svc2 := &restartableservice{id: 2}
+	supervisor.Add(svc2)
+
+	ctx, cancel := contextWithTimeout(10 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+
+	svc1.Wait()
+	cancel()
+	wg.Wait()
+
+	if svc2.count == 1 {
+		t.Error("the restartable service should have been started more than once.")
+	}
+}
+
+func TestTerminationAbortRestart(t *testing.T) {
+	supervisor := Supervisor{
+		Name: "TestTerminationAbortRestart supervisor",
+		Log: func(msg interface{}) {
+			t.Log("supervisor log (termination abort restart):", msg)
+		},
+	}
+
+	svc1 := &holdingservice{id: 1}
+	svc1.Add(1)
+	supervisor.Add(svc1)
+	svc2 := &failingservice{id: 2}
+	supervisor.Add(svc2)
+
+	ctx, cancel := contextWithTimeout(10 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+
+	svc1.Wait()
+	supervisor.Remove(svc2.String())
+
+	svc3 := &holdingservice{id: 3}
+	svc3.Add(1)
+	supervisor.Add(svc3)
+	svc3.Wait()
+
+	cancel()
+	wg.Wait()
+
+	if svc2.count == 0 {
+		t.Error("the failing service should have been started at least once.")
+	}
 }
 
 func getServiceCount(s *Supervisor) int {

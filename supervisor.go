@@ -1,12 +1,11 @@
 package supervisor
 
-import (
-	"fmt"
-	"math"
-	"time"
-)
+import "fmt"
 
-type retryAfterFail func(name string) bool
+// AlwaysRestart adjusts the supervisor to never halt in face of failures.
+const AlwaysRestart = -1
+
+type processFailure func()
 
 func (s *Supervisor) String() string {
 	return s.Name
@@ -22,14 +21,6 @@ func (s *Supervisor) Add(service Service) {
 	name := fmt.Sprintf("%s", service)
 
 	s.mu.Lock()
-	s.backoff[name] = &backoff{
-		decay:     s.FailureDecay,
-		threshold: s.FailureThreshold,
-		backoff:   s.Backoff,
-		log: func(msg interface{}) {
-			s.Log(fmt.Sprintf("backoff %s: %v", name, msg))
-		},
-	}
 	s.services[name] = service
 	s.mu.Unlock()
 
@@ -59,10 +50,6 @@ func (s *Supervisor) Remove(name string) {
 	if _, ok := s.cancelations[name]; ok {
 		delete(s.cancelations, name)
 	}
-
-	if _, ok := s.backoff[name]; ok {
-		delete(s.cancelations, name)
-	}
 }
 
 // Services return a list of services
@@ -80,32 +67,5 @@ func (s *Supervisor) cleanchan() {
 	select {
 	case <-s.added:
 	default:
-	}
-}
-
-type backoff struct {
-	decay     float64
-	threshold float64
-	backoff   time.Duration
-	log       func(str interface{})
-
-	lastfail time.Time
-	failures float64
-}
-
-func (b *backoff) wait() {
-	if b.lastfail.IsZero() {
-		b.lastfail = time.Now()
-		b.failures = 1.0
-		return
-	}
-
-	b.failures++
-	intervals := time.Since(b.lastfail).Seconds() / b.decay
-	b.failures = b.failures*math.Pow(.5, intervals) + 1
-
-	if b.failures > b.threshold {
-		b.log(b.backoff)
-		time.Sleep(b.backoff)
 	}
 }

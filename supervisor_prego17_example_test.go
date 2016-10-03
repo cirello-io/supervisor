@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"cirello.io/supervisor"
-
 	"golang.org/x/net/context"
 )
 

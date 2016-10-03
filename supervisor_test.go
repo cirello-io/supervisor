@@ -716,8 +716,7 @@ func TestValidGroup(t *testing.T) {
 
 	supervisor := Group{
 		Supervisor: &Supervisor{
-			Name:        "TestGroup supervisor",
-			MaxRestarts: AlwaysRestart,
+			Name: "TestGroup supervisor",
 			Log: func(msg interface{}) {
 				t.Log("group log:", msg)
 			},
@@ -734,13 +733,7 @@ func TestValidGroup(t *testing.T) {
 		supervisor.Add(svc)
 	}
 
-	for {
-		svc1.mu.Lock()
-		c := svc1.count
-		svc1.mu.Unlock()
-		if c >= 2 {
-			break
-		}
+	for svc1.Count() < 2 {
 	}
 
 	cancel()

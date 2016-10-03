@@ -886,7 +886,44 @@ func TestTemporaryService(t *testing.T) {
 	wg.Wait()
 
 	if svc1.count != 1 {
-		t.Error("the transient service should have been started just once.", svc1.count)
+		t.Error("the temporary service should have been started just once.", svc1.count)
+	}
+}
+
+func TestTransientService(t *testing.T) {
+	t.Parallel()
+	supervisor := Supervisor{
+		Name: "TestTemporaryService supervisor",
+		Log: func(msg interface{}) {
+			t.Log("supervisor log (termination abort restart):", msg)
+		},
+	}
+
+	svc1 := &transientservice{id: 1}
+	supervisor.AddService(svc1, Transient)
+	svc2 := &holdingservice{id: 2}
+	svc2.Add(1)
+	supervisor.Add(svc2)
+
+	ctx, cancel := contextWithTimeout(10 * time.Second)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.Serve(ctx)
+		wg.Done()
+	}()
+	svc2.Wait()
+
+	svc3 := &holdingservice{id: 3}
+	svc3.Add(1)
+	supervisor.Add(svc3)
+	svc3.Wait()
+
+	cancel()
+	wg.Wait()
+
+	if svc1.count != 2 {
+		t.Error("the transient service should have been started just twice.", svc1.count)
 	}
 }
 

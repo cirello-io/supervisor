@@ -160,6 +160,13 @@ func (s *temporaryservice) Serve(ctx context.Context) {
 	s.mu.Unlock()
 }
 
+func (s *temporaryservice) Count() int {
+	s.mu.Lock()
+	c := s.count
+	s.mu.Unlock()
+	return c
+}
+
 func (s *temporaryservice) String() string {
 	return fmt.Sprintf("temporary service %v", s.id)
 }

@@ -148,6 +148,13 @@ func (s *waitservice) String() string {
 	return fmt.Sprintf("wait service %v", s.id)
 }
 
+func (s *waitservice) Count() int {
+	s.mu.Lock()
+	c := s.count
+	s.mu.Unlock()
+	return c
+}
+
 type temporaryservice struct {
 	id    int
 	mu    sync.Mutex

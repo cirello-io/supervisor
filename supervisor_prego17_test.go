@@ -77,7 +77,9 @@ func (s *holdingservice) String() string {
 }
 
 type panicservice struct {
-	id, count int
+	id    int
+	mu    sync.Mutex
+	count int
 }
 
 func (s *panicservice) Serve(ctx context.Context) {
@@ -87,7 +89,9 @@ func (s *panicservice) Serve(ctx context.Context) {
 			return
 		default:
 			time.Sleep(100 * time.Millisecond)
+			s.mu.Lock()
 			s.count++
+			s.mu.Unlock()
 			panic("forcing panic")
 		}
 	}
@@ -95,6 +99,13 @@ func (s *panicservice) Serve(ctx context.Context) {
 
 func (s *panicservice) String() string {
 	return fmt.Sprintf("panic service %v", s.id)
+}
+
+func (s *panicservice) Count() int {
+	s.mu.Lock()
+	c := s.count
+	s.mu.Unlock()
+	return c
 }
 
 type quickpanicservice struct {

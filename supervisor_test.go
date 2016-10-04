@@ -6,7 +6,6 @@ import (
 	"log"
 	"sync"
 	"testing"
-	"time"
 )
 
 func init() {
@@ -55,8 +54,12 @@ func TestCascaded(t *testing.T) {
 	childSupervisor.Add(&svc4)
 	supervisor.Add(&childSupervisor)
 
-	ctx, _ := contextWithTimeout(1 * time.Second)
-	supervisor.Serve(ctx)
+	ctx, cancel := contextWithCancel()
+	go supervisor.Serve(ctx)
+	for svc1.Count() == 0 || svc3.Count() == 0 {
+	}
+
+	cancel()
 
 	if count := getServiceCount(&supervisor); count != 3 {
 		t.Errorf("unexpected service count: %v", count)
@@ -78,8 +81,13 @@ func TestLog(t *testing.T) {
 	svc1 := panicservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := contextWithTimeout(1 * time.Second)
-	supervisor.Serve(ctx)
+	ctx, cancel := contextWithCancel()
+	go supervisor.Serve(ctx)
+	for svc1.Count() == 0 {
+	}
+
+	cancel()
+
 }
 
 func TestPanic(t *testing.T) {
@@ -100,11 +108,13 @@ func TestPanic(t *testing.T) {
 	svc1 := panicservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := contextWithTimeout(1 * time.Second)
-	supervisor.Serve(ctx)
-
-	if svc1.count == 1 {
-		t.Error("the failed service should have been started at least once.")
+	ctx, cancel := contextWithCancel()
+	go supervisor.Serve(ctx)
+	for svc1.Count() == 0 {
+	}
+	cancel()
+	if svc1.count == 0 {
+		t.Errorf("the failed service should have been started at least once. Got: %d", svc1.count)
 	}
 }
 
@@ -157,11 +167,16 @@ func TestFailing(t *testing.T) {
 	svc1 := failingservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := contextWithTimeout(3 * time.Second)
-	supervisor.Serve(ctx)
+	ctx, cancel := contextWithCancel()
+	go supervisor.Serve(ctx)
 
-	if svc1.count == 1 {
-		t.Error("the failed service should have been started just once.")
+	for svc1.Count() == 0 {
+	}
+
+	cancel()
+
+	if svc1.count != 1 {
+		t.Errorf("the failed service should have been started just once. Got: %d", svc1.count)
 	}
 }
 
@@ -184,10 +199,15 @@ func TestAlwaysRestart(t *testing.T) {
 	svc1 := failingservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := contextWithTimeout(3 * time.Second)
-	supervisor.Serve(ctx)
+	ctx, cancel := contextWithCancel()
+	go supervisor.Serve(ctx)
 
-	if svc1.count == 1 {
+	for svc1.Count() == 0 {
+	}
+
+	cancel()
+
+	if svc1.count != 1 {
 		t.Error("the failed service should have been started just once.")
 	}
 }
@@ -211,11 +231,16 @@ func TestHaltAfterFailure(t *testing.T) {
 	svc1 := failingservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := contextWithTimeout(1 * time.Hour)
-	supervisor.Serve(ctx)
+	ctx, cancel := contextWithCancel()
+	go supervisor.Serve(ctx)
+
+	for svc1.Count() == 0 {
+	}
+
+	cancel()
 
 	if svc1.count != 1 {
-		t.Error("the failed service should have been started just once.")
+		t.Errorf("the failed service should have been started just once. Got: %d", svc1.count)
 	}
 }
 
@@ -236,7 +261,7 @@ func TestHaltAfterPanic(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := contextWithTimeout(5 * time.Second)
+	ctx, cancel := contextWithCancel()
 
 	svc1 := &holdingservice{id: 1}
 	svc1.Add(1)
@@ -282,7 +307,7 @@ func TestTerminationAfterPanic(t *testing.T) {
 	svc2.Add(1)
 	supervisor.Add(svc2)
 
-	ctx, cancel := contextWithTimeout(5 * time.Second)
+	ctx, cancel := contextWithCancel()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -337,7 +362,7 @@ func TestGroupTerminationAfterPanic(t *testing.T) {
 	svc2.Add(1)
 	supervisor.Add(svc2)
 
-	ctx, cancel := contextWithTimeout(10 * time.Second)
+	ctx, cancel := contextWithCancel()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -389,7 +414,7 @@ func TestMaxRestart(t *testing.T) {
 	svc1 := failingservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := contextWithTimeout(10 * time.Second)
+	ctx, _ := contextWithCancel()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -426,7 +451,7 @@ func TestGroupMaxRestart(t *testing.T) {
 	svc1 := failingservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := contextWithTimeout(10 * time.Second)
+	ctx, _ := contextWithCancel()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -451,7 +476,7 @@ func TestAddServiceAfterServe(t *testing.T) {
 	svc1.Add(1)
 	supervisor.Add(svc1)
 
-	ctx, cancel := contextWithTimeout(2 * time.Second)
+	ctx, cancel := contextWithCancel()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -487,7 +512,7 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 	svc2.Add(1)
 	supervisor.Add(svc2)
 
-	ctx, cancel := contextWithTimeout(10 * time.Second)
+	ctx, cancel := contextWithCancel()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -526,17 +551,12 @@ func TestRemoveServiceAfterServeBug(t *testing.T) {
 	svc1.Add(1)
 	supervisor.Add(svc1)
 
-	ctx, _ := contextWithTimeout(2 * time.Second)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		supervisor.Serve(ctx)
-		wg.Done()
-	}()
+	ctx, cancel := contextWithCancel()
+	go supervisor.Serve(ctx)
 
 	svc1.Wait()
 	supervisor.Remove(svc1.String())
-	wg.Wait()
+	cancel()
 
 	if svc1.count > 1 {
 		t.Errorf("the removal of a service should have terminated it. It was started %v times", svc1.count)
@@ -555,7 +575,7 @@ func TestServices(t *testing.T) {
 	svc2.Add(1)
 	supervisor.Add(svc2)
 
-	ctx, cancel := contextWithTimeout(10 * time.Second)
+	ctx, cancel := contextWithCancel()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -597,7 +617,7 @@ func TestManualCancelation(t *testing.T) {
 	svc2 := restartableservice{id: 2, restarted: make(chan struct{})}
 	supervisor.Add(&svc2)
 
-	ctx, cancel := contextWithTimeout(10 * time.Second)
+	ctx, cancel := contextWithCancel()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -628,7 +648,7 @@ func TestServiceList(t *testing.T) {
 	svc1.Add(1)
 	supervisor.Add(svc1)
 
-	ctx, cancel := contextWithTimeout(10 * time.Second)
+	ctx, cancel := contextWithCancel()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -687,7 +707,7 @@ func TestInvalidGroup(t *testing.T) {
 		}
 	}()
 	var group Group
-	ctx, _ := contextWithTimeout(10 * time.Second)
+	ctx, _ := contextWithCancel()
 	group.Serve(ctx)
 	t.Error("this group is invalid and should have had panic()'d")
 }
@@ -707,7 +727,7 @@ func TestSupervisorAbortRestart(t *testing.T) {
 	svc2 := &restartableservice{id: 2}
 	supervisor.Add(svc2)
 
-	ctx, cancel := contextWithTimeout(10 * time.Second)
+	ctx, cancel := contextWithCancel()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -738,7 +758,7 @@ func TestTemporaryService(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := contextWithTimeout(10 * time.Second)
+	ctx, cancel := contextWithCancel()
 	go supervisor.Serve(ctx)
 	svc1 := &temporaryservice{id: 1}
 	supervisor.AddService(svc1, Temporary)
@@ -768,7 +788,7 @@ func TestTransientService(t *testing.T) {
 	svc2.Add(1)
 	supervisor.Add(svc2)
 
-	ctx, cancel := contextWithTimeout(10 * time.Second)
+	ctx, cancel := contextWithCancel()
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {

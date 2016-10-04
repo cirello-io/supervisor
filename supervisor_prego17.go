@@ -218,6 +218,7 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 				default:
 				}
 				if svc.svctype == Temporary {
+					s.Log(fmt.Sprintf("%s exited (temporary)", name))
 					return
 				}
 				processFailure()

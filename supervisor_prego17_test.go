@@ -131,12 +131,15 @@ func (s *quickpanicservice) String() string {
 type restartableservice struct {
 	id        int
 	restarted chan struct{}
+	mu        sync.Mutex
 	count     int
 }
 
 func (s *restartableservice) Serve(ctx context.Context) {
 	for {
+		s.mu.Lock()
 		s.count++
+		s.mu.Unlock()
 		select {
 		case <-ctx.Done():
 			return
@@ -148,6 +151,13 @@ func (s *restartableservice) Serve(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (s *restartableservice) Count() int {
+	s.mu.Lock()
+	c := s.count
+	s.mu.Unlock()
+	return c
 }
 
 func (s *restartableservice) String() string {

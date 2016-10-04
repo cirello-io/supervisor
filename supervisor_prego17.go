@@ -271,10 +271,6 @@ func (g *Group) Serve(ctx context.Context) {
 	serve(g.Supervisor, restartCtx, processFailure)
 }
 
-func contextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), timeout)
-}
-
 func contextWithCancel() (context.Context, context.CancelFunc) {
 	return context.WithCancel(context.Background())
 }

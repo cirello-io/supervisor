@@ -202,14 +202,10 @@ func TestAlwaysRestart(t *testing.T) {
 	ctx, cancel := contextWithCancel()
 	go supervisor.Serve(ctx)
 
-	for svc1.Count() == 0 {
+	for svc1.Count() < 2 {
 	}
 
 	cancel()
-
-	if svc1.count != 1 {
-		t.Error("the failed service should have been started just once.")
-	}
 }
 
 func TestHaltAfterFailure(t *testing.T) {
@@ -736,16 +732,14 @@ func TestSupervisorAbortRestart(t *testing.T) {
 	}()
 	svc1.Wait()
 
-	svc3 := &holdingservice{id: 3}
-	svc3.Add(1)
-	supervisor.Add(svc3)
-	svc3.Wait()
+	for svc2.Count() < 3 {
+	}
 
 	cancel()
 	wg.Wait()
 
-	if svc2.count == 1 {
-		t.Error("the restartable service should have been started more than once.")
+	if svc2.count < 3 {
+		t.Errorf("the restartable service should have been started twice. Got: %d", svc2.count)
 	}
 }
 
@@ -765,6 +759,9 @@ func TestTemporaryService(t *testing.T) {
 
 	for svc1.Count() < 1 {
 	}
+
+	svc2 := &temporaryservice{id: 2}
+	supervisor.AddService(svc2, Temporary)
 	cancel()
 
 	if svc1.count != 1 {

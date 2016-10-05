@@ -132,20 +132,18 @@ func TestRemovePanicService(t *testing.T) {
 
 	ctx, cancel := contextWithCancel()
 	go supervisor.Serve(ctx)
-	svc1 := quickpanicservice{id: 1}
+
+	svc1 := waitservice{id: 1}
 	supervisor.Add(&svc1)
-	svc2 := waitservice{id: 2}
+	svc2 := quickpanicservice{id: 2}
 	supervisor.Add(&svc2)
 
-	for svc2.Count() < 2 {
-	}
-
-	supervisor.Remove(svc1.String())
+	supervisor.Remove(svc2.String())
 	cancel()
 
 	svcs := supervisor.Services()
-	if _, ok := svcs[svc1.String()]; ok {
-		t.Errorf("%s should have been removed.", &svc1)
+	if _, ok := svcs[svc2.String()]; ok {
+		t.Errorf("%s should have been removed.", &svc2)
 	}
 }
 
@@ -324,63 +322,6 @@ func TestTerminationAfterPanic(t *testing.T) {
 	svc4.Add(1)
 	supervisor.Add(svc4)
 	svc4.Wait()
-
-	cancel()
-
-	wg.Wait()
-
-	if svc1.count > 1 {
-		t.Error("the panic service should have not been started more than once.")
-	}
-}
-
-func TestGroupTerminationAfterPanic(t *testing.T) {
-	t.Parallel()
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("unexpected panic: %v", r)
-		}
-	}()
-
-	supervisor := Group{
-		Supervisor: &Supervisor{
-			Name:        "TestTerminationAfterPanicGroup supervisor",
-			MaxRestarts: AlwaysRestart,
-			Log: func(msg interface{}) {
-				t.Log("supervisor log (termination after panic group):", msg)
-			},
-		},
-	}
-	svc1 := panicservice{id: 1}
-	supervisor.Add(&svc1)
-	svc2 := &holdingservice{id: 2}
-	svc2.Add(1)
-	supervisor.Add(svc2)
-
-	ctx, cancel := contextWithCancel()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		supervisor.Serve(ctx)
-		wg.Done()
-	}()
-
-	svc2.Wait()
-	supervisor.Remove(svc1.String())
-
-	svc3 := &holdingservice{id: 3}
-	svc3.Add(1)
-	supervisor.Add(svc3)
-	svc3.Wait()
-
-	svc4 := panicservice{id: 4}
-	supervisor.Add(&svc4)
-	svc5 := &holdingservice{id: 5}
-	svc5.Add(1)
-	supervisor.Add(svc5)
-	svc5.Wait()
 
 	cancel()
 
@@ -665,9 +606,9 @@ func TestServiceList(t *testing.T) {
 func TestValidGroup(t *testing.T) {
 	t.Parallel()
 
-	supervisor := Group{
+	supervisor := &Group{
 		Supervisor: &Supervisor{
-			Name: "TestGroup supervisor",
+			Name: "TestValidGroup supervisor",
 			Log: func(msg interface{}) {
 				t.Log("group log:", msg)
 			},
@@ -675,61 +616,33 @@ func TestValidGroup(t *testing.T) {
 	}
 	ctx, cancel := contextWithCancel()
 	go supervisor.Serve(ctx)
+	t.Log("supervisor started")
 
-	svc1 := &temporaryservice{id: 1}
+	trigger1 := make(chan struct{})
+	listening1 := make(chan struct{})
+	svc1 := &triggerfailservice{id: 1, trigger: trigger1, listening: listening1, log: t.Logf}
 	supervisor.Add(svc1)
+	t.Log("svc1 added")
 
-	for i := 2; i <= 1000; i++ {
-		svc := &temporaryservice{id: i}
-		supervisor.Add(svc)
-	}
-
-	for svc1.Count() < 2 {
-	}
-
-	cancel()
-
-	if c := svc1.count; c < 2 {
-		t.Errorf("temporary service should have been started at least twice. Got: %d", c)
-	}
-}
-
-func TestGroupFailure(t *testing.T) {
-	t.Parallel()
-
-	supervisor := Group{
-		Supervisor: &Supervisor{
-			Name: "TestGroup supervisor",
-			Log: func(msg interface{}) {
-				t.Log("group log:", msg)
-			},
-		},
-	}
-	ctx, cancel := contextWithCancel()
-	go supervisor.Serve(ctx)
-
-	svc1 := &holdingservice{id: 1}
-	svc1.Add(1)
-	supervisor.Add(svc1)
-
-	trigger := make(chan struct{})
-	listening := make(chan struct{})
-	svc2 := &triggerfailservice{id: 2, trigger: trigger, listening: listening, log: t.Log}
+	trigger2 := make(chan struct{})
+	listening2 := make(chan struct{})
+	svc2 := &triggerfailservice{id: 2, trigger: trigger2, listening: listening2, log: t.Logf}
 	supervisor.Add(svc2)
+	t.Log("svc2 added")
 
-	svc1.Wait()
-	<-listening
-	t.Log("sending signal")
-	svc1.Add(1)
-	trigger <- struct{}{}
-	svc1.Wait()
+	<-listening1
+	<-listening2
+	trigger1 <- struct{}{}
+
+	<-listening1
+	<-listening2
+
+	if !(svc1.count == svc2.count && svc1.count == 1) {
+		t.Errorf("both services should have the same start count")
+	}
 
 	t.Log("stopping supervisor")
 	cancel()
-
-	if c := svc1.count; c < 2 {
-		t.Errorf("temporary service should have been started at least twice. Got: %d", c)
-	}
 }
 
 func TestInvalidGroup(t *testing.T) {

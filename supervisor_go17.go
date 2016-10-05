@@ -53,7 +53,7 @@ type Supervisor struct {
 	// supervisor picks it up.
 	added chan struct{}
 
-	// indicates that supervisor is running, or has running services.
+	// indicates that supervisor has running services.
 	running         sync.Mutex
 	runningServices sync.WaitGroup
 
@@ -86,7 +86,7 @@ func (s *Supervisor) reset() {
 		}
 	}
 
-	s.added = make(chan struct{}, 1)
+	s.added = make(chan struct{})
 	s.cancelations = make(map[string]context.CancelFunc)
 	s.services = make(map[string]service)
 	s.terminations = make(map[string]context.CancelFunc)
@@ -139,12 +139,7 @@ func serve(s *Supervisor, ctx context.Context, processFailure processFailure) {
 	s.running.Lock()
 	defer s.running.Unlock()
 
-	select {
-	case <-s.added:
-	default:
-	}
 	startServices(s, ctx, processFailure)
-
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -167,8 +162,6 @@ func serve(s *Supervisor, ctx context.Context, processFailure processFailure) {
 	s.mu.Lock()
 	s.cancelations = make(map[string]context.CancelFunc)
 	s.mu.Unlock()
-
-	s.cleanchan()
 }
 
 func startServices(s *Supervisor, supervisorCtx context.Context, processFailure processFailure) {
@@ -208,6 +201,7 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 					s.mu.Unlock()
 					svc.svc.Serve(ctx)
 				}()
+				processFailure()
 				select {
 				case <-terminateCtx.Done():
 					s.Log(fmt.Sprintf("%s restart aborted (terminated)", name))
@@ -221,7 +215,6 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 					s.Log(fmt.Sprintf("%s exited (temporary)", name))
 					return
 				}
-				processFailure()
 				s.Log(fmt.Sprintf("%s exited", name))
 			}
 		}(name, svc)
@@ -250,7 +243,24 @@ func (g *Group) Serve(ctx context.Context) {
 	g.Supervisor.prepare()
 	restartCtx, cancel := context.WithCancel(ctx)
 
+	var (
+		mu                sync.Mutex
+		processingFailure bool
+	)
 	processFailure := func() {
+		mu.Lock()
+		if processingFailure {
+			mu.Unlock()
+			return
+		}
+		processingFailure = true
+		defer func() {
+			mu.Lock()
+			processingFailure = true
+			mu.Unlock()
+		}()
+		mu.Unlock()
+
 		if !g.shouldRestart() {
 			cancel()
 			return
@@ -261,17 +271,18 @@ func (g *Group) Serve(ctx context.Context) {
 		for _, c := range g.terminations {
 			c()
 		}
+
 		g.cancelations = make(map[string]context.CancelFunc)
 		g.mu.Unlock()
 
-		g.Log("waiting for all services termination")
-		g.runningServices.Wait()
+		go func() {
+			g.Log("waiting for all services termination")
+			g.runningServices.Wait()
+			g.Log("waiting for all services termination - completed")
 
-		g.Log("triggering group restart")
-		select {
-		case g.added <- struct{}{}:
-		default:
-		}
+			g.Log("triggering group restart")
+			g.added <- struct{}{}
+		}()
 	}
 	serve(g.Supervisor, restartCtx, processFailure)
 }

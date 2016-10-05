@@ -1,12 +1,9 @@
-// +build !go1.7
-
 package supervisor
 
 import (
+	"context"
 	"sync"
 	"testing"
-
-	"golang.org/x/net/context"
 )
 
 func TestDefaultSupevisorAndGroup(t *testing.T) {

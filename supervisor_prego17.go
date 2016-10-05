@@ -257,17 +257,21 @@ func (g *Group) Serve(ctx context.Context) {
 		}
 
 		g.mu.Lock()
-		g.Log("restarting all services after failure")
+		g.Log("halting all services after failure")
 		for _, c := range g.terminations {
 			c()
 		}
 		g.cancelations = make(map[string]context.CancelFunc)
+		g.mu.Unlock()
 
+		g.Log("waiting for all services termination")
+		g.runningServices.Wait()
+
+		g.Log("triggering group restart")
 		select {
 		case g.added <- struct{}{}:
 		default:
 		}
-		g.mu.Unlock()
 	}
 	serve(g.Supervisor, restartCtx, processFailure)
 }

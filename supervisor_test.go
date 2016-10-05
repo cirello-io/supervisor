@@ -692,7 +692,44 @@ func TestValidGroup(t *testing.T) {
 	if c := svc1.count; c < 2 {
 		t.Errorf("temporary service should have been started at least twice. Got: %d", c)
 	}
+}
 
+func TestGroupFailure(t *testing.T) {
+	t.Parallel()
+
+	supervisor := Group{
+		Supervisor: &Supervisor{
+			Name: "TestGroup supervisor",
+			Log: func(msg interface{}) {
+				t.Log("group log:", msg)
+			},
+		},
+	}
+	ctx, cancel := contextWithCancel()
+	go supervisor.Serve(ctx)
+
+	svc1 := &holdingservice{id: 1}
+	svc1.Add(1)
+	supervisor.Add(svc1)
+
+	trigger := make(chan struct{})
+	listening := make(chan struct{})
+	svc2 := &triggerfailservice{id: 2, trigger: trigger, listening: listening, log: t.Log}
+	supervisor.Add(svc2)
+
+	svc1.Wait()
+	<-listening
+	t.Log("sending signal")
+	svc1.Add(1)
+	trigger <- struct{}{}
+	svc1.Wait()
+
+	t.Log("stopping supervisor")
+	cancel()
+
+	if c := svc1.count; c < 2 {
+		t.Errorf("temporary service should have been started at least twice. Got: %d", c)
+	}
 }
 
 func TestInvalidGroup(t *testing.T) {

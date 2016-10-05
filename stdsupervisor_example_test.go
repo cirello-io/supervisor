@@ -1,13 +1,11 @@
-// +build !go1.7
-
 package supervisor_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
 	"cirello.io/supervisor"
-	"golang.org/x/net/context"
 )
 
 type Simpleservice struct {

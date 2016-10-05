@@ -44,7 +44,6 @@ func (s *Supervisor) AddService(svc Service, svctype ServiceType) {
 	s.prepare()
 
 	name := fmt.Sprintf("%s", svc)
-
 	s.mu.Lock()
 	s.services[name] = service{
 		svc:     svc,
@@ -52,10 +51,9 @@ func (s *Supervisor) AddService(svc Service, svctype ServiceType) {
 	}
 	s.mu.Unlock()
 
-	select {
-	case s.added <- struct{}{}:
-	default:
-	}
+	go func() {
+		s.added <- struct{}{}
+	}()
 }
 
 // Remove stops the service in the Supervisor tree and remove from it.
@@ -89,11 +87,4 @@ func (s *Supervisor) Services() map[string]Service {
 	}
 	s.mu.Unlock()
 	return svclist
-}
-
-func (s *Supervisor) cleanchan() {
-	select {
-	case <-s.added:
-	default:
-	}
 }

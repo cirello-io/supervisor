@@ -268,17 +268,20 @@ type triggerfailservice struct {
 	id        int
 	trigger   chan struct{}
 	listening chan struct{}
-	log       func(args ...interface{})
+	log       func(msg string, args ...interface{})
+	count     int
 }
 
 func (s *triggerfailservice) Serve(ctx context.Context) {
 	s.listening <- struct{}{}
-	s.log("listening")
+	s.log("listening %d", s.id)
 	select {
 	case <-s.trigger:
-		s.log("triggered")
+		s.log("triggered %d", s.id)
+		s.count++
 	case <-ctx.Done():
-		s.log("context done")
+		s.log("context done %d", s.id)
+		s.count++
 	}
 }
 

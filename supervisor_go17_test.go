@@ -263,3 +263,25 @@ func (s *transientservice) Serve(ctx context.Context) {
 func (s *transientservice) String() string {
 	return fmt.Sprintf("transient service %v", s.id)
 }
+
+type triggerfailservice struct {
+	id        int
+	trigger   chan struct{}
+	listening chan struct{}
+	log       func(args ...interface{})
+}
+
+func (s *triggerfailservice) Serve(ctx context.Context) {
+	s.listening <- struct{}{}
+	s.log("listening")
+	select {
+	case <-s.trigger:
+		s.log("triggered")
+	case <-ctx.Done():
+		s.log("context done")
+	}
+}
+
+func (s *triggerfailservice) String() string {
+	return fmt.Sprintf("trigger fail service %v", s.id)
+}

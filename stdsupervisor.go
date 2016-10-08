@@ -6,29 +6,24 @@ import (
 )
 
 var (
-	// DefaultSupervisor is the default Supervisor used in this package.
-	DefaultSupervisor Supervisor
-
-	running sync.Mutex
+	defaultSupervisor Supervisor
+	running           sync.Mutex
+	defaultContext    = context.Background()
 )
 
 func init() {
-	DefaultSupervisor.Name = "default supervisor"
+	defaultSupervisor.Name = "default supervisor"
 }
 
-// Remove stops the service in the DefaultSupervisor tree and remove from it.
+// Remove stops the service in the default supervisor tree and remove from it.
 func Remove(name string) {
-	DefaultSupervisor.Remove(name)
+	defaultSupervisor.Remove(name)
 }
 
-// Services return a list of services of DefaultSupervisor.
+// Services return a list of services of default supervisor.
 func Services() map[string]Service {
-	return DefaultSupervisor.Services()
+	return defaultSupervisor.Services()
 }
-
-var (
-	defaultContext = context.Background()
-)
 
 // SetDefaultContext allows to change the context used for supervisor.Serve()
 // and supervisor.ServeGroup().
@@ -38,32 +33,30 @@ func SetDefaultContext(ctx context.Context) {
 	running.Unlock()
 }
 
-// Add inserts new service into the DefaultSupervisor. If the DefaultSupervisor
-// is already started, it will start it automatically. If the same service is
-// added more than once, it will reset its backoff mechanism and force a service
-// restart.
+// Add inserts new service into the default supervisor. If it is already
+// started, it will launch it automatically.
 func Add(service Service) {
-	DefaultSupervisor.Add(service)
+	defaultSupervisor.Add(service)
 }
 
-// Cancelations return a list of services names of DefaultSupervisor and their
+// Cancelations return a list of services names of default supervisor and their
 // cancelation calls. These calls be used to force a service restart.
 func Cancelations() map[string]context.CancelFunc {
-	return DefaultSupervisor.Cancelations()
+	return defaultSupervisor.Cancelations()
 }
 
-// ServeContext starts the DefaultSupervisor tree with a custom context.Context.
+// ServeContext starts the default upervisor tree with a custom context.Context.
 // It can be started only once at a time. If stopped (canceled), it can be
 // restarted. In case of concurrent calls, it will hang until the current call
 // is completed. After its conclusion, its internal state is reset.
 func ServeContext(ctx context.Context) {
 	running.Lock()
-	DefaultSupervisor.Serve(ctx)
-	DefaultSupervisor.reset()
+	defaultSupervisor.Serve(ctx)
+	defaultSupervisor.reset()
 	running.Unlock()
 }
 
-// ServeGroupContext starts the DefaultSupervisor tree with a custom
+// ServeGroupContext starts the defaultSupervisor tree with a custom
 // context.Context. It can be started only once at a time. If stopped
 // (canceled), it can be restarted. In case of concurrent calls, it will hang
 // until the current call is completed. After its conclusion, its internal
@@ -71,13 +64,13 @@ func ServeContext(ctx context.Context) {
 func ServeGroupContext(ctx context.Context) {
 	running.Lock()
 	var group Group
-	group.Supervisor = &DefaultSupervisor
+	group.Supervisor = &defaultSupervisor
 	group.Serve(ctx)
-	DefaultSupervisor.reset()
+	defaultSupervisor.reset()
 	running.Unlock()
 }
 
-// Serve starts the DefaultSupervisor tree. It can be started only once at a
+// Serve starts the default supervisor tree. It can be started only once at a
 // time. If stopped (canceled), it can be restarted. In case of concurrent
 // calls, it will hang until the current call is completed. It can run only one
 // per package-level. If you need many, use
@@ -85,13 +78,13 @@ func ServeGroupContext(ctx context.Context) {
 // After its conclusion, its internal state is reset.
 func Serve() {
 	running.Lock()
-	DefaultSupervisor.Serve(defaultContext)
-	DefaultSupervisor.reset()
+	defaultSupervisor.Serve(defaultContext)
+	defaultSupervisor.reset()
 	defaultContext = context.Background()
 	running.Unlock()
 }
 
-// ServeGroup starts the DefaultSupervisor tree within a Group. It can be
+// ServeGroup starts the default supervisor tree within a Group. It can be
 // started only once at a time. If stopped (canceled), it can be restarted.
 // In case of concurrent calls, it will hang until the current call is
 // completed.  It can run only one per package-level. If you need many, use
@@ -101,9 +94,9 @@ func Serve() {
 func ServeGroup() {
 	running.Lock()
 	var group Group
-	group.Supervisor = &DefaultSupervisor
+	group.Supervisor = &defaultSupervisor
 	group.Serve(defaultContext)
-	DefaultSupervisor.reset()
+	defaultSupervisor.reset()
 	defaultContext = context.Background()
 	running.Unlock()
 }

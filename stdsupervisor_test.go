@@ -15,13 +15,13 @@ func TestDefaultSupevisorAndGroup(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	SetDefaultContext(ctx)
 	Add(svc)
-	if len(DefaultSupervisor.services) != 1 {
+	if len(defaultSupervisor.services) != 1 {
 		t.Errorf("%s should have been added", svc.String())
 	}
 
 	Remove(svc.String())
-	if len(DefaultSupervisor.services) != 0 {
-		t.Errorf("%s should have been removed. services: %#v", svc.String(), DefaultSupervisor.services)
+	if len(defaultSupervisor.services) != 0 {
+		t.Errorf("%s should have been removed. services: %#v", svc.String(), defaultSupervisor.services)
 	}
 
 	Add(svc)
@@ -52,7 +52,7 @@ func TestDefaultSupevisorAndGroup(t *testing.T) {
 	SetDefaultContext(ctx)
 	svc.Add(1)
 	Add(svc)
-	if len(DefaultSupervisor.services) != 1 {
+	if len(defaultSupervisor.services) != 1 {
 		t.Errorf("%s should have been added", svc.String())
 	}
 

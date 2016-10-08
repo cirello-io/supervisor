@@ -213,7 +213,9 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 					s.mu.Unlock()
 					svc.svc.Serve(ctx)
 				}()
-				processFailure()
+				if retry {
+					processFailure()
+				}
 				select {
 				case <-terminateCtx.Done():
 					s.Log(fmt.Sprintf("%s restart aborted (terminated)", name))
@@ -223,11 +225,15 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 					return
 				default:
 				}
-				if svc.svctype == Temporary {
+				switch svc.svctype {
+				case Temporary:
 					s.Log(fmt.Sprintf("%s exited (temporary)", name))
 					return
+				case Transient:
+					s.Log(fmt.Sprintf("%s exited (transient)", name))
+				default:
+					s.Log(fmt.Sprintf("%s exited (permanent)", name))
 				}
-				s.Log(fmt.Sprintf("%s exited", name))
 			}
 		}(name, svc)
 	}

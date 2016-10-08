@@ -266,11 +266,6 @@ func (g *Group) Serve(ctx context.Context) {
 			return
 		}
 		processingFailure = true
-		defer func() {
-			mu.Lock()
-			processingFailure = true
-			mu.Unlock()
-		}()
 		mu.Unlock()
 
 		if !g.shouldRestart() {
@@ -291,6 +286,10 @@ func (g *Group) Serve(ctx context.Context) {
 			g.Log("waiting for all services termination")
 			g.runningServices.Wait()
 			g.Log("waiting for all services termination - completed")
+
+			mu.Lock()
+			processingFailure = true
+			mu.Unlock()
 
 			g.Log("triggering group restart")
 			g.added <- struct{}{}

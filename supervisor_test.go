@@ -14,6 +14,33 @@ func init() {
 	log.SetOutput(ioutil.Discard)
 }
 
+func TestAddFuncSupervisor(t *testing.T) {
+	t.Parallel()
+
+	var (
+		runCount int
+		wg       sync.WaitGroup
+	)
+
+	wg.Add(1)
+	var svr Supervisor
+	svr.AddFunc(func(ctx context.Context) {
+		runCount++
+		wg.Done()
+		<-ctx.Done()
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go svr.Serve(ctx)
+
+	wg.Wait()
+	cancel()
+
+	if runCount == 0 {
+		t.Errorf("anonymous service should have been started")
+	}
+}
+
 func TestAddServiceAfterServe(t *testing.T) {
 	t.Parallel()
 

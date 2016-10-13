@@ -140,11 +140,15 @@ func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 }
 
 // Add inserts into the Supervisor tree a new permanent service. If the
-// Supervisor is already started, it will start it automatically. If the same
-// service is added more than once, it will reset its backoff mechanism and
-// force a service restart.
+// Supervisor is already started, it will start it automatically.
 func (s *Supervisor) Add(service Service) {
 	s.AddService(service, Permanent)
+}
+
+// Add inserts into the Supervisor tree a new permanent anonymous service. If
+// the Supervisor is already started, it will start it automatically.
+func (s *Supervisor) AddFunc(f func(context.Context)) {
+	s.AddService(newAnonymousService(f), Permanent)
 }
 
 // AddService inserts into the Supervisor tree a new service of ServiceType. If

@@ -40,7 +40,8 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 	defer s.mu.Unlock()
 
 	var wg sync.WaitGroup
-	for name, svc := range s.services {
+	for _, name := range s.svcorder {
+		svc := s.services[name]
 		if _, ok := s.cancelations[name]; ok {
 			continue
 		}

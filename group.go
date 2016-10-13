@@ -7,11 +7,10 @@ import (
 
 // Group is a superset of Supervisor datastructure responsible for offering a
 // supervisor tree whose all services are restarted whenever one of them fail or
-// is restarted. It assumes that all services rely on each other. It does not
-// guarantee any start other, but it does guarantee all services will be
-// restarted. It implements Service, therefore it can be nested if necessary
-// either with other Group or Supervisor. When passing the Group around,
-// remind to do it as reference (&supervisor).
+// is restarted. It assumes that all services rely on each other. It implements
+// Service, therefore it can be nested if necessary either with other Group or
+// Supervisor. When passing the Group around, remind to do it as reference
+// (&group).
 type Group struct {
 	*Supervisor
 }

@@ -163,7 +163,7 @@ func TestGroupMaxRestart(t *testing.T) {
 	svc1 := failingservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -173,6 +173,7 @@ func TestGroupMaxRestart(t *testing.T) {
 	}()
 
 	wg.Wait()
+	cancel()
 
 	if svc1.count > 1 {
 		t.Error("the panic service should have not been started more than once.")
@@ -260,9 +261,10 @@ func TestInvalidGroup(t *testing.T) {
 		}
 	}()
 	var group Group
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	group.Serve(ctx)
 	t.Error("this group is invalid and should have had panic()'d")
+	cancel()
 }
 
 func TestLog(t *testing.T) {
@@ -344,7 +346,7 @@ func TestMaxRestart(t *testing.T) {
 	svc1 := failingservice{id: 1}
 	supervisor.Add(&svc1)
 
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -354,6 +356,7 @@ func TestMaxRestart(t *testing.T) {
 	}()
 
 	wg.Wait()
+	cancel()
 
 	if svc1.count > 1 {
 		t.Error("the panic service should have not been started more than once.")

@@ -294,7 +294,7 @@ func (g *Group) Serve(ctx context.Context) {
 			g.Log("waiting for all services termination - completed")
 
 			mu.Lock()
-			processingFailure = true
+			processingFailure = false
 			mu.Unlock()
 
 			g.Log("triggering group restart")

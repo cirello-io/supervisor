@@ -24,8 +24,7 @@ func Add(service Service) {
 // AddFunc inserts new anonymous service into the default supervisor. If it is
 // already started, it will launch it automatically.
 func AddFunc(f func(context.Context)) {
-	svc := newAnonymousService(f)
-	defaultSupervisor.Add(svc)
+	defaultSupervisor.AddFunc(f)
 }
 
 // Cancelations return a list of services names of default supervisor and their

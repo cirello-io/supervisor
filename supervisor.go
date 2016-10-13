@@ -77,6 +77,7 @@ type Supervisor struct {
 	runningServices sync.WaitGroup
 
 	mu           sync.Mutex
+	svcorder     []string                      // order in which services must be started
 	services     map[string]service            // added services
 	cancelations map[string]context.CancelFunc // each service cancelation
 	terminations map[string]context.CancelFunc // each service termination call
@@ -164,6 +165,7 @@ func (s *Supervisor) AddService(svc Service, svctype ServiceType) {
 		svc:     svc,
 		svctype: svctype,
 	}
+	s.svcorder = append(s.svcorder, name)
 	s.mu.Unlock()
 
 	go func() {
@@ -182,6 +184,13 @@ func (s *Supervisor) Remove(name string) {
 	}
 
 	delete(s.services, name)
+
+	for i, n := range s.svcorder {
+		if name == n {
+			s.svcorder = append(s.svcorder[:i], s.svcorder[i+1:]...)
+			break
+		}
+	}
 
 	if c, ok := s.terminations[name]; ok {
 		delete(s.terminations, name)

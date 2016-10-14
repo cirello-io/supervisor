@@ -146,8 +146,8 @@ func (s *Supervisor) Add(service Service) {
 	s.AddService(service, Permanent)
 }
 
-// Add inserts into the Supervisor tree a new permanent anonymous service. If
-// the Supervisor is already started, it will start it automatically.
+// AddFunc inserts into the Supervisor tree a new permanent anonymous service.
+// If the Supervisor is already started, it will start it automatically.
 func (s *Supervisor) AddFunc(f func(context.Context)) {
 	s.AddService(newAnonymousService(f), Permanent)
 }

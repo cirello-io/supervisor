@@ -47,23 +47,29 @@ type Service interface {
 // Supervisor is the basic datastructure responsible for offering a supervisor
 // tree. It implements Service, therefore it can be nested if necessary. When
 // passing the Supervisor around, remind to do it as reference (&supervisor).
+// Once the supervisor is started, its attributes are frozen.
 type Supervisor struct {
 	// Name for this supervisor tree, used for logging.
 	Name string
+	name string
 
 	// MaxRestarts is the number of maximum restarts given MaxTime. If more
 	// than MaxRestarts occur in the last MaxTime, then the supervisor
 	// stops all services and halts. Set this to AlwaysRestart to prevent
 	// supervisor halt.
 	MaxRestarts int
+	maxrestarts int
+
 
 	// MaxTime is the time period on which the internal restart count will
 	// be reset.
 	MaxTime time.Duration
+	maxtime time.Duration
 
 	// Log is a replaceable function used for overall logging.
 	// Default: log.Printf.
 	Log func(interface{})
+	log func(interface{})
 
 	// indicates that supervisor is ready for use.
 	prepared sync.Once
@@ -106,6 +112,11 @@ func (s *Supervisor) reset() {
 		}
 	}
 
+	s.name = s.Name
+	s.maxrestarts = s.MaxRestarts
+	s.maxtime = s.MaxTime
+	s.log = s.Log
+
 	s.added = make(chan struct{})
 	s.cancelations = make(map[string]context.CancelFunc)
 	s.services = make(map[string]service)
@@ -114,18 +125,18 @@ func (s *Supervisor) reset() {
 }
 
 func (s *Supervisor) shouldRestart() bool {
-	if s.MaxRestarts == AlwaysRestart {
+	if s.maxrestarts == AlwaysRestart {
 		return true
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if time.Since(s.lastRestart) > s.MaxTime {
+	if time.Since(s.lastRestart) > s.maxtime {
 		s.restarts = 0
 	}
 	s.lastRestart = time.Now()
 	s.restarts++
-	return s.restarts < s.MaxRestarts
+	return s.restarts < s.maxrestarts
 }
 
 // Cancelations return a list of services names and their cancelation calls.
@@ -229,5 +240,6 @@ func (s *Supervisor) Services() map[string]Service {
 }
 
 func (s *Supervisor) String() string {
-	return s.Name
+	s.prepare()
+	return s.name
 }

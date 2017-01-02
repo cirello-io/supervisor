@@ -44,7 +44,7 @@ func (g *Group) Serve(ctx context.Context) {
 		}
 
 		g.mu.Lock()
-		g.Log("halting all services after failure")
+		g.log("halting all services after failure")
 		for _, c := range g.terminations {
 			c()
 		}
@@ -53,15 +53,15 @@ func (g *Group) Serve(ctx context.Context) {
 		g.mu.Unlock()
 
 		go func() {
-			g.Log("waiting for all services termination")
+			g.log("waiting for all services termination")
 			g.runningServices.Wait()
-			g.Log("waiting for all services termination - completed")
+			g.log("waiting for all services termination - completed")
 
 			mu.Lock()
 			processingFailure = false
 			mu.Unlock()
 
-			g.Log("triggering group restart")
+			g.log("triggering group restart")
 			g.added <- struct{}{}
 		}()
 	}

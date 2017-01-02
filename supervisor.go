@@ -33,7 +33,7 @@ const (
 // Service is the public interface expected by a Supervisor.
 //
 // This will be internally named after the result of fmt.Stringer, if available.
-// Otherwise it will going to use an internal representation for the service
+// Otherwise it is going to use an internal representation for the service
 // name.
 type Service interface {
 	// Serve is called by a Supervisor to start the service. It expects the

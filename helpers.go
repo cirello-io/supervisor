@@ -59,11 +59,11 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 			retry := true
 			for retry {
 				retry = svc.svctype == Permanent
-				s.Log(fmt.Sprintf("%s starting", name))
+				s.log(fmt.Sprintf("%s starting", name))
 				func() {
 					defer func() {
 						if r := recover(); r != nil {
-							s.Log(fmt.Sprintf("%s panic: %v", name, r))
+							s.log(fmt.Sprintf("%s panic: %v", name, r))
 							retry = svc.svctype == Permanent || svc.svctype == Transient
 						}
 					}()
@@ -78,21 +78,21 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 				}
 				select {
 				case <-terminateCtx.Done():
-					s.Log(fmt.Sprintf("%s restart aborted (terminated)", name))
+					s.log(fmt.Sprintf("%s restart aborted (terminated)", name))
 					return
 				case <-supervisorCtx.Done():
-					s.Log(fmt.Sprintf("%s restart aborted (supervisor halted)", name))
+					s.log(fmt.Sprintf("%s restart aborted (supervisor halted)", name))
 					return
 				default:
 				}
 				switch svc.svctype {
 				case Temporary:
-					s.Log(fmt.Sprintf("%s exited (temporary)", name))
+					s.log(fmt.Sprintf("%s exited (temporary)", name))
 					return
 				case Transient:
-					s.Log(fmt.Sprintf("%s exited (transient)", name))
+					s.log(fmt.Sprintf("%s exited (transient)", name))
 				default:
-					s.Log(fmt.Sprintf("%s exited (permanent)", name))
+					s.log(fmt.Sprintf("%s exited (permanent)", name))
 				}
 			}
 		}(name, svc)

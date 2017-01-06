@@ -24,20 +24,26 @@ func (s *Simpleservice) String() string {
 }
 
 func ExampleAddFunc() {
-	var wg sync.WaitGroup
+	var svc sync.WaitGroup
 
-	wg.Add(1)
+	svc.Add(1)
 	supervisor.AddFunc(func(ctx context.Context) {
 		fmt.Println("anonymous service")
-		wg.Done()
+		svc.Done()
 		<-ctx.Done()
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go supervisor.ServeContext(ctx)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		supervisor.ServeContext(ctx)
+		wg.Done()
+	}()
 
-	wg.Wait()
+	svc.Wait()
 	cancel()
+	wg.Wait()
 
 	// output:
 	// anonymous service

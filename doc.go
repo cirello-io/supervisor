@@ -75,4 +75,4 @@ This is package is inspired by github.com/thejerf/suture
 
 http://www.jerf.org/iri/post/2930
 */
-package supervisor
+package supervisor // import "cirello.io/supervisor"

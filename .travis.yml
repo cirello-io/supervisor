@@ -3,4 +3,3 @@ go_import_path: cirello.io/supervisor
 go:
   - 1.8
   - 1.9
-  - tip

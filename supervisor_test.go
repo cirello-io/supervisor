@@ -641,13 +641,13 @@ func TestTemporaryService(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go supervisor.Serve(ctx)
 	svc1 := &temporaryservice{id: 1}
-	supervisor.AddService(svc1, Temporary)
+	supervisor.Add(svc1, Temporary)
 
 	for svc1.Count() < 1 {
 	}
 
 	svc2 := &temporaryservice{id: 2}
-	supervisor.AddService(svc2, Temporary)
+	supervisor.Add(svc2, Temporary)
 	cancel()
 
 	if svc1.count != 1 {
@@ -719,7 +719,7 @@ func TestTransientService(t *testing.T) {
 
 	svc1 := &transientservice{id: 1}
 	svc1.Add(1)
-	supervisor.AddService(svc1, Transient)
+	supervisor.Add(svc1, Transient)
 	svc2 := &holdingservice{id: 2}
 	svc2.Add(1)
 	supervisor.Add(svc2)

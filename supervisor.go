@@ -8,27 +8,41 @@ import (
 	"time"
 )
 
-type service struct {
-	svc     Service
-	svctype ServiceType
-}
-
 type processFailure func()
 
 // AlwaysRestart adjusts the supervisor to never halt in face of failures.
 const AlwaysRestart = -1
 
-// ServiceType defines the restart strategy for a service.
-type ServiceType int
+type serviceType int
 
 const (
-	// Permanent services are always restarted
-	Permanent ServiceType = iota
-	// Transient services are restarted only when panic.
-	Transient
-	// Temporary services are never restarted.
-	Temporary
+	permanent serviceType = iota
+	transient
+	temporary
 )
+
+type service struct {
+	svc     Service
+	svctype serviceType
+}
+
+// ServiceOption modifies the service specifications.
+type ServiceOption func(*service)
+
+// Permanent services are always restarted
+func Permanent(s *service) {
+	s.svctype = permanent
+}
+
+// Transient services are restarted only when panic.
+func Transient(s *service) {
+	s.svctype = transient
+}
+
+// Temporary services are never restarted.
+func Temporary(s *service) {
+	s.svctype = temporary
+}
 
 // Service is the public interface expected by a Supervisor.
 //
@@ -59,7 +73,6 @@ type Supervisor struct {
 	// supervisor halt.
 	MaxRestarts int
 	maxrestarts int
-
 
 	// MaxTime is the time period on which the internal restart count will
 	// be reset.
@@ -153,29 +166,28 @@ func (s *Supervisor) Cancelations() map[string]context.CancelFunc {
 
 // Add inserts into the Supervisor tree a new permanent service. If the
 // Supervisor is already started, it will start it automatically.
-func (s *Supervisor) Add(service Service) {
-	s.AddService(service, Permanent)
+func (s *Supervisor) Add(service Service, opts ...ServiceOption) {
+	s.addService(service, opts...)
 }
 
 // AddFunc inserts into the Supervisor tree a new permanent anonymous service.
 // If the Supervisor is already started, it will start it automatically.
-func (s *Supervisor) AddFunc(f func(context.Context)) {
-	s.AddService(newAnonymousService(f), Permanent)
+func (s *Supervisor) AddFunc(f func(context.Context), opts ...ServiceOption) {
+	s.addService(newAnonymousService(f), opts...)
 }
 
-// AddService inserts into the Supervisor tree a new service of ServiceType. If
-// the Supervisor is already started, it will start it automatically. If the
-// same service is added more than once, it will reset its backoff mechanism and
-// force a service restart.
-func (s *Supervisor) AddService(svc Service, svctype ServiceType) {
+func (s *Supervisor) addService(svc Service, opts ...ServiceOption) {
 	s.prepare()
 
 	name := fmt.Sprintf("%s", svc)
 	s.mu.Lock()
-	s.services[name] = service{
-		svc:     svc,
-		svctype: svctype,
+	newsvc := service{
+		svc: svc,
 	}
+	for _, opt := range opts {
+		opt(&newsvc)
+	}
+	s.services[name] = newsvc
 	s.svcorder = append(s.svcorder, name)
 	s.mu.Unlock()
 

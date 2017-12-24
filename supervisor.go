@@ -255,3 +255,7 @@ func (s *Supervisor) String() string {
 	s.prepare()
 	return s.name
 }
+
+func (s *Supervisor) logf(format string, a ...interface{}) {
+	s.log(fmt.Sprintf(format, a...))
+}

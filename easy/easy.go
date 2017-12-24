@@ -48,6 +48,21 @@ func init() {
 	supervisors = make(map[string]*supervisor.Group)
 }
 
+// Permanent services are always restarted.
+func Permanent() supervisor.ServiceOption {
+	return supervisor.Permanent
+}
+
+// Transient services are restarted only when panic.
+func Transient() supervisor.ServiceOption {
+	return supervisor.Transient
+}
+
+// Temporary services are never restarted.
+func Temporary() supervisor.ServiceOption {
+	return supervisor.Temporary
+}
+
 // Add inserts supervised function to the attached supervisor, it launches
 // automatically. If the context is not correctly prepared, it returns an
 // ErrNoSupervisorAttached error

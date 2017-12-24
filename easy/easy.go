@@ -51,7 +51,7 @@ func init() {
 // Add inserts supervised function to the attached supervisor, it launches
 // automatically. If the context is not correctly prepared, it returns an
 // ErrNoSupervisorAttached error
-func Add(ctx context.Context, f func(context.Context)) error {
+func Add(ctx context.Context, f func(context.Context), opts ...supervisor.ServiceOption) error {
 	name, ok := extractName(ctx)
 	if !ok {
 		return ErrNoSupervisorAttached
@@ -62,7 +62,7 @@ func Add(ctx context.Context, f func(context.Context)) error {
 	if !ok {
 		panic("supervisor not found")
 	}
-	svr.AddFunc(f)
+	svr.AddFunc(f, opts...)
 	return nil
 }
 

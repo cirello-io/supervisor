@@ -15,7 +15,6 @@ func init() {
 }
 
 func TestAddFuncSupervisor(t *testing.T) {
-	t.Parallel()
 
 	var (
 		runCount int
@@ -42,7 +41,6 @@ func TestAddFuncSupervisor(t *testing.T) {
 }
 
 func TestAddServiceAfterServe(t *testing.T) {
-	t.Parallel()
 
 	var supervisor Supervisor
 	supervisor.Name = "TestAddServiceAfterServe supervisor"
@@ -75,7 +73,6 @@ func TestAddServiceAfterServe(t *testing.T) {
 }
 
 func TestAlwaysRestart(t *testing.T) {
-	t.Parallel()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -103,7 +100,6 @@ func TestAlwaysRestart(t *testing.T) {
 }
 
 func TestCascaded(t *testing.T) {
-	t.Parallel()
 
 	var supervisor Supervisor
 	supervisor.Name = "TestCascaded root"
@@ -139,7 +135,6 @@ func TestCascaded(t *testing.T) {
 }
 
 func TestFailing(t *testing.T) {
-	t.Parallel()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -170,7 +165,6 @@ func TestFailing(t *testing.T) {
 }
 
 func TestGroupMaxRestart(t *testing.T) {
-	t.Parallel()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -208,7 +202,6 @@ func TestGroupMaxRestart(t *testing.T) {
 }
 
 func TestHaltAfterFailure(t *testing.T) {
-	t.Parallel()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -240,7 +233,6 @@ func TestHaltAfterFailure(t *testing.T) {
 }
 
 func TestHaltAfterPanic(t *testing.T) {
-	t.Parallel()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -281,7 +273,6 @@ func TestHaltAfterPanic(t *testing.T) {
 }
 
 func TestInvalidGroup(t *testing.T) {
-	t.Parallel()
 	defer func() {
 		if r := recover(); r == nil {
 			t.Error("defer called, but not because of panic")
@@ -295,7 +286,6 @@ func TestInvalidGroup(t *testing.T) {
 }
 
 func TestLog(t *testing.T) {
-	t.Parallel()
 
 	supervisor := Supervisor{
 		Name: "TestLog",
@@ -312,7 +302,6 @@ func TestLog(t *testing.T) {
 }
 
 func TestManualCancelation(t *testing.T) {
-	t.Parallel()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -355,7 +344,6 @@ func TestManualCancelation(t *testing.T) {
 }
 
 func TestMaxRestart(t *testing.T) {
-	t.Parallel()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -391,7 +379,6 @@ func TestMaxRestart(t *testing.T) {
 }
 
 func TestPanic(t *testing.T) {
-	t.Parallel()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -419,7 +406,6 @@ func TestPanic(t *testing.T) {
 }
 
 func TestRemovePanicService(t *testing.T) {
-	t.Parallel()
 
 	supervisor := Group{
 		Supervisor: &Supervisor{
@@ -448,7 +434,6 @@ func TestRemovePanicService(t *testing.T) {
 }
 
 func TestRemoveServiceAfterServe(t *testing.T) {
-	t.Parallel()
 
 	var supervisor Supervisor
 	supervisor.Name = "TestRemoveServiceAfterServe supervisor"
@@ -490,7 +475,6 @@ func TestRemoveServiceAfterServe(t *testing.T) {
 }
 
 func TestRemoveServiceAfterServeBug(t *testing.T) {
-	t.Parallel()
 
 	var supervisor Supervisor
 	supervisor.Name = "TestRemoveServiceAfterServeBug supervisor"
@@ -511,7 +495,6 @@ func TestRemoveServiceAfterServeBug(t *testing.T) {
 }
 
 func TestServiceList(t *testing.T) {
-	t.Parallel()
 
 	var supervisor Supervisor
 	supervisor.Name = "TestServiceList supervisor"
@@ -538,7 +521,6 @@ func TestServiceList(t *testing.T) {
 }
 
 func TestServices(t *testing.T) {
-	t.Parallel()
 
 	var supervisor Supervisor
 	supervisor.Name = "TestServices supervisor"
@@ -571,7 +553,6 @@ func TestServices(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	t.Parallel()
 
 	const expected = "test"
 	var supervisor Supervisor
@@ -583,7 +564,6 @@ func TestString(t *testing.T) {
 }
 
 func TestStringDefaultName(t *testing.T) {
-	t.Parallel()
 
 	const expected = "supervisor"
 	var supervisor Supervisor
@@ -595,7 +575,6 @@ func TestStringDefaultName(t *testing.T) {
 }
 
 func TestSupervisorAbortRestart(t *testing.T) {
-	t.Parallel()
 	supervisor := Supervisor{
 		Name: "TestAbortRestart supervisor",
 		Log: func(msg interface{}) {
@@ -630,7 +609,6 @@ func TestSupervisorAbortRestart(t *testing.T) {
 }
 
 func TestTemporaryService(t *testing.T) {
-	t.Parallel()
 	supervisor := Supervisor{
 		Name: "TestTemporaryService supervisor",
 		Log: func(msg interface{}) {
@@ -656,7 +634,6 @@ func TestTemporaryService(t *testing.T) {
 }
 
 func TestTerminationAfterPanic(t *testing.T) {
-	t.Parallel()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -709,7 +686,6 @@ func TestTerminationAfterPanic(t *testing.T) {
 }
 
 func TestTransientService(t *testing.T) {
-	t.Parallel()
 	supervisor := Supervisor{
 		Name: "TestTemporaryService supervisor",
 		Log: func(msg interface{}) {
@@ -743,7 +719,6 @@ func TestTransientService(t *testing.T) {
 }
 
 func TestValidGroup(t *testing.T) {
-	t.Parallel()
 
 	supervisor := &Group{
 		Supervisor: &Supervisor{

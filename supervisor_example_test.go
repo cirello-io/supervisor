@@ -2,10 +2,27 @@ package supervisor_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"time"
 
 	"cirello.io/supervisor"
 )
+
+type Simpleservice struct {
+	id int
+	sync.WaitGroup
+}
+
+func (s *Simpleservice) Serve(ctx context.Context) {
+	fmt.Println(s.String())
+	s.Done()
+	<-ctx.Done()
+}
+
+func (s *Simpleservice) String() string {
+	return fmt.Sprintf("simple service %d", s.id)
+}
 
 func ExampleSupervisor() {
 	var supervisor supervisor.Supervisor

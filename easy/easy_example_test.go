@@ -19,10 +19,18 @@ func Example() {
 	ctx = supervisor.WrapContext(ctx)
 	wg.Add(1)
 	supervisor.Add(ctx, func(ctx context.Context) {
-		defer wg.Done()
-		fmt.Println("executed successfully")
-		cancel()
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			defer wg.Done()
+			fmt.Println("executed successfully")
+			cancel()
+		}
 	})
 
 	wg.Wait()
+
+	// Expected output:
+	// executed successfully
 }

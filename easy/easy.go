@@ -93,7 +93,8 @@ func WrapContext(ctx context.Context) context.Context {
 	wrapped := context.WithValue(ctx, supervisorName, chosenName)
 	svr := &supervisor.Group{
 		Supervisor: &supervisor.Supervisor{
-			Log: func(interface{}) {},
+			MaxRestarts: supervisor.AlwaysRestart,
+			Log:         func(interface{}) {},
 		},
 	}
 	mu.Lock()

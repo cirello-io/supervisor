@@ -3,13 +3,12 @@ package easy_test
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
 	supervisor "cirello.io/supervisor/easy"
 )
-
-// TODO: deflake the test
 
 func Example() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -18,7 +17,7 @@ func Example() {
 	var wg sync.WaitGroup
 	ctx = supervisor.WrapContext(ctx)
 	wg.Add(1)
-	supervisor.Add(ctx, func(ctx context.Context) {
+	serviceName, err := supervisor.Add(ctx, func(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
@@ -28,9 +27,16 @@ func Example() {
 			cancel()
 		}
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	wg.Wait()
 
-	// Expected output:
+	if err := supervisor.Remove(ctx, serviceName); err != nil {
+		log.Fatal(err)
+	}
+
+	// Output:
 	// executed successfully
 }

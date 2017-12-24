@@ -173,8 +173,10 @@ func (s *Supervisor) Add(service Service, opts ...ServiceOption) {
 
 // AddFunc inserts into the Supervisor tree a new permanent anonymous service.
 // If the Supervisor is already started, it will start it automatically.
-func (s *Supervisor) AddFunc(f func(context.Context), opts ...ServiceOption) {
-	s.addService(newAnonymousService(f), opts...)
+func (s *Supervisor) AddFunc(f func(context.Context), opts ...ServiceOption) string {
+	svc := newAnonymousService(f)
+	s.addService(svc, opts...)
+	return svc.String()
 }
 
 func (s *Supervisor) addService(svc Service, opts ...ServiceOption) {

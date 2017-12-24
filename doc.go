@@ -51,6 +51,8 @@ Example:
 	}
 
 	func main(){
+		var supervisor supervisor.Supervisor
+
 		svc := Simpleservice(1)
 		supervisor.Add(&svc)
 
@@ -65,7 +67,8 @@ Example:
 			fmt.Println("halting supervisor...")
 			cancel()
 		}()
-		supervisor.ServeContext(ctx)
+
+		supervisor.Serve(ctx)
 	}
 
 TheJerf's blog post about Suture is a very good and helpful read to understand

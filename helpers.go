@@ -51,7 +51,7 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 		s.cancelations[name] = terminate
 		s.terminations[name] = terminate
 
-		go func(name string, svc service) {
+		go func(name string, svc ServiceSpecification) {
 			s.runningServices.Add(1)
 			defer s.runningServices.Done()
 			wg.Done()

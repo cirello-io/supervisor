@@ -51,7 +51,25 @@ func init() {
 // Add inserts supervised function to the attached supervisor, it launches
 // automatically. If the context is not correctly prepared, it returns an
 // ErrNoSupervisorAttached error
-func Add(ctx context.Context, f func(context.Context), opts ...supervisor.ServiceOption) error {
+func Add(ctx context.Context, f func(context.Context), opts ...supervisor.ServiceOption) (string, error) {
+	name, ok := extractName(ctx)
+	if !ok {
+		return "", ErrNoSupervisorAttached
+	}
+	mu.Lock()
+	svr, ok := supervisors[name]
+	mu.Unlock()
+	if !ok {
+		panic("supervisor not found")
+	}
+	svcName := svr.AddFunc(f, opts...)
+	return svcName, nil
+}
+
+// Remove stops and removes the given service from the attached supervisor. If
+// the context is not correctly prepared, it returns an ErrNoSupervisorAttached
+// error
+func Remove(ctx context.Context, name string) error {
 	name, ok := extractName(ctx)
 	if !ok {
 		return ErrNoSupervisorAttached
@@ -62,7 +80,7 @@ func Add(ctx context.Context, f func(context.Context), opts ...supervisor.Servic
 	if !ok {
 		panic("supervisor not found")
 	}
-	svr.AddFunc(f, opts...)
+	svr.Remove(name)
 	return nil
 }
 

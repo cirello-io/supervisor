@@ -58,13 +58,13 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 			wg.Done()
 			retry := true
 			for retry {
-				retry = svc.svctype == Permanent
+				retry = svc.svctype == permanent
 				s.log(fmt.Sprintf("%s starting", name))
 				func() {
 					defer func() {
 						if r := recover(); r != nil {
 							s.log(fmt.Sprintf("%s panic: %v", name, r))
-							retry = svc.svctype == Permanent || svc.svctype == Transient
+							retry = svc.svctype == permanent || svc.svctype == transient
 						}
 					}()
 					ctx, cancel := context.WithCancel(terminateCtx)
@@ -86,10 +86,10 @@ func startServices(s *Supervisor, supervisorCtx context.Context, processFailure 
 				default:
 				}
 				switch svc.svctype {
-				case Temporary:
+				case temporary:
 					s.log(fmt.Sprintf("%s exited (temporary)", name))
 					return
-				case Transient:
+				case transient:
 					s.log(fmt.Sprintf("%s exited (transient)", name))
 				default:
 					s.log(fmt.Sprintf("%s exited (permanent)", name))

@@ -17,14 +17,14 @@ func init() {
 
 // Add inserts new service into the default supervisor. If it is already
 // started, it will launch it automatically.
-func Add(service Service) {
-	defaultSupervisor.Add(service)
+func Add(service Service, opts ...ServiceOption) {
+	defaultSupervisor.Add(service, opts...)
 }
 
 // AddFunc inserts new anonymous service into the default supervisor. If it is
 // already started, it will launch it automatically.
-func AddFunc(f func(context.Context)) {
-	defaultSupervisor.AddFunc(f)
+func AddFunc(f func(context.Context), opts ...ServiceOption) {
+	defaultSupervisor.AddFunc(f, opts...)
 }
 
 // Cancelations return a list of services names of default supervisor and their

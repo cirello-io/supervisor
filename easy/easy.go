@@ -85,7 +85,8 @@ func Remove(ctx context.Context, name string) error {
 }
 
 // WrapContext takes a context and prepare it to be used by easy supervisor
-// package.
+// package. Internally, it creates a supervisor in group mode. In this mode,
+// every time a service dies, the whole supervisor is restarted.
 func WrapContext(ctx context.Context) context.Context {
 	chosenName := fmt.Sprintf("supervisor-%d", rand.Uint64())
 

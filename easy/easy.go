@@ -61,7 +61,7 @@ var (
 
 // Add inserts supervised function to the attached supervisor, it launches
 // automatically. If the context is not correctly prepared, it returns an
-// ErrNoSupervisorAttached error
+// ErrNoSupervisorAttached error. By default, the restart policy is Permanent.
 func Add(ctx context.Context, f func(context.Context), opts ...supervisor.ServiceOption) (string, error) {
 	name, ok := extractName(ctx)
 	if !ok {
@@ -73,6 +73,7 @@ func Add(ctx context.Context, f func(context.Context), opts ...supervisor.Servic
 	if !ok {
 		panic("supervisor not found")
 	}
+	opts = append([]supervisor.ServiceOption{Permanent}, opts...)
 	svcName := svr.AddFunc(f, opts...)
 	return svcName, nil
 }

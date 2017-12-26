@@ -15,7 +15,7 @@ func Example() {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	ctx = supervisor.WithSupervisor(ctx)
+	ctx = supervisor.WithContext(ctx)
 	wg.Add(1)
 	serviceName, err := supervisor.Add(ctx, func(ctx context.Context) {
 		select {

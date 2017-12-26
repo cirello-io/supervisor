@@ -41,27 +41,23 @@ var (
 	ErrNoSupervisorAttached = errors.New("no supervisor attached to context")
 
 	mu          sync.Mutex
-	supervisors map[string]*supervisor.Group // map of supevisor name to supervisor.Supervisor
+	supervisors map[string]*supervisor.Group // map of supervisor name to supervisor.Supervisor
 )
 
 func init() {
 	supervisors = make(map[string]*supervisor.Group)
 }
 
-// Permanent services are always restarted.
-func Permanent() supervisor.ServiceOption {
-	return supervisor.Permanent
-}
+var (
+	// Permanent services are always restarted.
+	Permanent = supervisor.Permanent
 
-// Transient services are restarted only when panic.
-func Transient() supervisor.ServiceOption {
-	return supervisor.Transient
-}
+	// Transient services are restarted only when panic.
+	Transient = supervisor.Transient
 
-// Temporary services are never restarted.
-func Temporary() supervisor.ServiceOption {
-	return supervisor.Temporary
-}
+	// Temporary services are never restarted.
+	Temporary = supervisor.Temporary
+)
 
 // Add inserts supervised function to the attached supervisor, it launches
 // automatically. If the context is not correctly prepared, it returns an

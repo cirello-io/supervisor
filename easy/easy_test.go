@@ -37,7 +37,7 @@ func TestLogger(t *testing.T) {
 	supervisor.Add(ctx, func(context.Context) { wg.Done() }, supervisor.Transient)
 	wg.Wait()
 
-	const expected = "anonymous service 1 starting"
+	const expected = "function service 1 starting"
 	if got != expected {
 		t.Error("unexpected logged message found. got:", got, "expected:", expected)
 	}

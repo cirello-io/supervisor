@@ -1,6 +1,8 @@
 /*
 Package supervisor provides supervisor trees for Go applications.
 
+DEPRECATED: consider using cirello.io/oversight
+
 This package implements supervisor trees, similar to what Erlang runtime offers.
 It is built on top of context package, with all of its advantages, namely the
 possibility trickle down context-related values and cancelation signals.
